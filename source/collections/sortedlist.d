@@ -27,6 +27,7 @@ public struct SortedList(E, bool order = true, bool allowDuplicates = true) {
 	}
     /**
 	 * Adds a new element while keeping the order intact.
+	 * TO DO: Optimize insertion to not use insertInPlace and array slicing in the future.
 	 */
 	void put(E a) @safe nothrow pure {
 		import std.array : insertInPlace;

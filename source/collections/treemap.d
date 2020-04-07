@@ -21,8 +21,8 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			string result = "{K: " ~ to!string(key) ~ " ; ";
 			static if (E.stringof != "void")
 				result ~= "E: " ~ to!string(elem) ~ " ; ";
-			if (left) result ~= "Left: " ~ left.toString() ~ " ; ";
-			if (right) result ~= "Right: " ~ right.toString() ~ " ; ";
+			if (left) result ~= "L: " ~ left.toString() ~ " ; ";
+			if (right) result ~= "R: " ~ right.toString() ~ " ; ";
 			return result ~ "}";
 		}
 		///Returns the balance of the node.
@@ -40,7 +40,7 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 		}
 		static if (E.stringof != "void"){
 			/**
-			 * Implements a simple left-to-right tree traversal by depth.
+			 * Implements a simple left-to-right tree traversal.
 			 */
 			int opApply(scope int delegate(ref E) dg) {
 				if(left)
@@ -53,8 +53,53 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 						return 1;
 				return 0;
 			}
+			/**
+			 * Implements a simple left-to-right tree traversal.
+			 */
+			int opApply(scope int delegate(K, ref E) dg) {
+				if(left)
+					if(left.opApply(dg))
+						return 1;
+				if(dg(key, elem))
+					return 1;
+				if(right)
+					if(right.opApply(dg))
+						return 1;
+				return 0;
+			}
+			/**
+			 * Implements a simple right-to-left tree traversal.
+			 */
+			int opApplyReverse(scope int delegate(ref E) dg) {
+				if(right)
+					if(right.opApply(dg))
+						return 1;
+				if(dg(elem))
+					return 1;
+				if(left)
+					if(left.opApply(dg))
+						return 1;
+				return 0;
+			}
+			/**
+			 * Implements a simple right-to-left tree traversal.
+			 */
+			int opApplyReverse(scope int delegate(K, ref E) dg) {
+				if(right)
+					if(right.opApply(dg))
+						return 1;
+				if(dg(key, elem))
+					return 1;
+				if(left)
+					if(left.opApply(dg))
+						return 1;
+				return 0;
+			}
 		} else {
-			int opApply(scope int delegate(ref K) dg) {
+			/**
+			 * Implements a simple left-to-right tree traversal.
+			 */
+			int opApply(scope int delegate(K) dg) {
 				if(left)
 					if(left.opApply(dg))
 						return 1;
@@ -62,6 +107,20 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 					return 1;
 				if(right)
 					if(right.opApply(dg))
+						return 1;
+				return 0;
+			}
+			/**
+			 * Implements a simple right-to-left tree traversal.
+			 */
+			int opApplyReverse(scope int delegate(K) dg) {
+				if(right)
+					if(right.opApply(dg))
+						return 1;
+				if(dg(key))
+					return 1;
+				if(left)
+					if(left.opApply(dg))
 						return 1;
 				return 0;
 			}
@@ -92,13 +151,30 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 				}
 				return E.init;
 			}
+			/**
+			 * Returns the pointer of the element, or null if key not found.
+			 */
+			E* ptrOf(T)(T key) @nogc @safe pure nothrow {
+				Node* crnt = root;
+				while(crnt) {
+					if(crnt.key > key) {		//key is smaller than current element's, look at lesser elements
+						crnt = crnt.left;
+					} else if(crnt.key < key) {			//key is greater than current element's, look at greater elements
+						crnt = crnt.right;
+					} else {	//match found, return element
+						return &crnt.elem;
+						
+					}
+				}
+				return null;
+			}
 		} else {
 			/**
 			 * Indexing function that relies on the GC, and throws if no match found
 			 * Can be indexed with any type of value as long as K.opCmp supports it.
 			 * Returns the found element if match found.
 			 */
-			E opIndex(T)(T key) @safe pure {
+			ref E opIndex(T)(T key) @safe pure {
 				Node* crnt = root;
 				while(crnt) {
 					if(crnt.key > key) {		//key is smaller than current element's, look at lesser elements
@@ -154,42 +230,42 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			}
 		}
 	}
-	/**
-	 * Assigns a value to the given key.
-	 * If key found, the value will be overwritten without node insertion.
-	 * If key isn't found, a new node will be inserted.
-	 */
-	auto opIndexAssign(E elem, K key) @safe pure nothrow {
-		if(!root){	//Best case scenario: root is empty
-			nOfElements++;
-			root = new Node(key, elem, null, null);
+	static if (E.stringof != "void"){
+		/**
+		 * Assigns a value to the given key.
+		 * If key found, the value will be overwritten without node insertion.
+		 * If key isn't found, a new node will be inserted.
+		 */
+		auto opIndexAssign(E elem, K key) @safe pure nothrow {
+			if(!root){	//Best case scenario: root is empty
+				nOfElements++;
+				root = new Node(key, elem, null, null);
+				return elem;
+			}
+			Node* crnt = root;
+			while(crnt) {
+				if(crnt.key == key) {	//Another best case scenario: a keymatch is found
+					crnt.elem = elem;
+					crnt = null;
+				} else if(crnt.key > key) {	//Key is smaller, look at left hand side
+					if(crnt.left is null) {
+						crnt.left = new Node(key, elem, null, null);
+						crnt = null;
+						nOfElements++;
+					}
+					else crnt = crnt.left;
+				} else {		//Key must be greater, look ay right hand side
+					if(crnt.right is null) {
+						crnt.right = new Node(key, elem, null, null);
+						crnt = null;
+						nOfElements++;
+					}
+					else crnt = crnt.right;
+				}
+			}
+			rebalance();
 			return elem;
 		}
-		Node* crnt = root;
-		while(crnt) {
-			if(crnt.key == key) {	//Another best case scenario: a keymatch is found
-				crnt.elem = elem;
-				crnt = null;
-			} else if(crnt.key > key) {	//Key is smaller, look at left hand side
-				if(crnt.left is null) {
-					crnt.left = new Node(key, elem, null, null);
-					crnt = null;
-					nOfElements++;
-				}
-				else crnt = crnt.left;
-			} else {		//Key must be greater, look ay right hand side
-				if(crnt.right is null) {
-					crnt.right = new Node(key, elem, null, null);
-					crnt = null;
-					nOfElements++;
-				}
-				else crnt = crnt.right;
-			}
-		}
-		rebalance();
-		return elem;
-	}
-	static if (E.stringof != "void"){
 		/**
 		 * Removes an item by key.
 		 * Returns the removed item if found, or E.init if not.
@@ -247,10 +323,109 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 						}
 					}
 					nOfElements--;
+					rebalance();
 					return result;
 				}
 			}
 			return E.init;
+		}
+	} else {
+		/**
+		 * Puts an element into the TreeMap
+		 */
+		public K put(K key) @safe pure nothrow {
+			if(!root){	//Best case scenario: root is empty
+				nOfElements++;
+				root = new Node(key, null, null);
+				return key;
+			}
+			Node* crnt = root;
+			while(crnt) {
+				/+if(crnt.key == key) {	//Another best case scenario: a keymatch is found
+					crnt.elem = elem;
+					crnt = null;
+				} else +/
+				if(crnt.key > key) {	//Key is smaller, look at left hand side
+					if(crnt.left is null) {
+						crnt.left = new Node(key, null, null);
+						crnt = null;
+						nOfElements++;
+					}
+					else crnt = crnt.left;
+				} else {		//Key must be greater, look ay right hand side
+					if(crnt.right is null) {
+						crnt.right = new Node(key, null, null);
+						crnt = null;
+						nOfElements++;
+					}
+					else crnt = crnt.right;
+				}
+			}
+			rebalance();
+			return key;
+		}
+		/**
+		 * Removes an item by key.
+		 * Returns the removed item if found, or K.init if not.
+		 */
+		public K remove(T)(T key) @safe pure nothrow {
+			import core.memory : GC;
+			Node* crnt = root, prev;
+			while(crnt !is null) {
+				if(crnt.key > key) {		//Key has a lesser value, search on the left.
+					prev = crnt;
+					crnt = crnt.left;
+				} else if(crnt.key < key) {		//Key has a greater value, search on the right
+					prev = crnt;
+					crnt = crnt.right;
+				} else {				//Key must have been found
+					K result = crnt.key;
+					//dispose of the node properly if needed
+					if(prev !is null) {
+						if(crnt.left && crnt.right) {	//Worst case scenario: find the smallest node on the right hand side
+							Node* temp = findMin(crnt.right);
+							remove(temp.key);
+							crnt.key = temp.key;
+							//crnt.elem = temp.elem;
+						} else if(!crnt.left && crnt.right) {
+							if(prev.key > key) {	//The node was on the left side of the previous one
+								prev.left = crnt.right;
+							} else {
+								prev.right = crnt.right;
+							}
+						} else if(crnt.left && !crnt.right) {
+							if(prev.key > key) {	//The node was on the left side of the previous one
+								prev.left = crnt.left;
+							} else {
+								prev.right = crnt.left;
+							}
+						} else { //Best case scenario: there are no child nodes, just dereference from prev
+							if(prev.key > key) {	//The node was on the left side of the previous one
+								prev.left = null;
+							} else {
+								prev.right = null;
+							}
+						}
+					} else {//must be root element
+						if(crnt.left && crnt.right) {	//Worst case scenario: find the smallest node on the right hand side
+							Node* temp = findMin(crnt.right);
+							remove(temp.key);
+							crnt.key = temp.key;
+							//crnt.elem = temp.elem;
+						} else if(!crnt.left && crnt.right) {
+							root = crnt.right;
+						} else if(crnt.left && !crnt.right) {
+							root = crnt.left;
+						} else { //Best case scenario: there are no child nodes, just dereference from root
+							root = null;
+						}
+					}
+					nOfElements--;
+					rebalance();
+					return result;
+				}
+			}
+			return K.init;
 		}
 	}
 	/**
@@ -283,21 +458,46 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			if(node.left) rebalanceLocal(node.left);
 			if(node.right) rebalanceLocal(node.right);
 		}
-		rebalanceLocal(root);
+		if(root !is null)
+			rebalanceLocal(root);
 	}
 	static if (E.stringof != "void"){
 		/**
-		 * Implements a simple left-to-right tree traversal by depth.
+		 * Implements a simple left-to-right tree traversal.
 		 */
 		int opApply(scope int delegate(ref E) dg) {
 			return root.opApply(dg);
+		}
+		/**
+		 * Implements a simple left-to-right tree traversal.
+		 */
+		int opApply(scope int delegate(K, ref E) dg) {
+			return root.opApply(dg);
+		}
+		/**
+		 * Implements a simple right-to-left tree traversal.
+		 */
+		int opApplyReverse(scope int delegate(ref E) dg) {
+			return root.opApplyReverse(dg);
+		}
+		/**
+		 * Implements a simple right-to-left tree traversal.
+		 */
+		int opApplyReverse(scope int delegate(K, ref E) dg) {
+			return root.opApplyReverse(dg);
 		}
 	} else {
 		/**
 		 * Implements a simple left-to-right tree traversal by depth.
 		 */
-		int opApply(scope int delegate(ref K) dg) {
+		int opApply(scope int delegate(K) dg) {
 			return root.opApply(dg);
+		}
+		/**
+		 * Implements a simple right-to-left tree traversal.
+		 */
+		int opApplyReverse(scope int delegate(K) dg) {
+			return root.opApplyReverse(dg);
 		}
 	}
 	/**
@@ -337,10 +537,16 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 		rotateLeft(node);
 	}
 	/**
+	 * Returns the number of currently held elements within the tree.
+	 */
+	public @property size_t length() @nogc @safe pure nothrow const {
+		return nOfElements;
+	}
+	/**
 	 * returns the string representation of the tree.
 	 */
 	public string toString() const {
-		if(root)
+		if(root !is null)
 			return root.toString;
 		else
 			return "Empty";
@@ -348,13 +554,20 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 }
 
 unittest {
-	import std.stdio : writeln;
+	import std.stdio : writeln, write;
 	import std.random : uniform;
+	import std.exception : assertThrown;
 	{
 		alias IntMap = TreeMap!(int, int, true);
 		IntMap test0, test1, test2, test3;
 		for(int i ; i < 1024 ; i++)//Stress test to see if large number of elements would cause any issues
 			test0[uniform(0, 65536)] = i;
+		foreach(k, e; test0){
+
+		}
+		foreach_reverse(k, e; test0){
+
+		}
 		for(int i ; i < 16 ; i++)
 			test1[uniform(0, 65536)] = i;
 		writeln(test1.toString);
@@ -364,10 +577,58 @@ unittest {
 		for(int i ; i < 64 ; i++)
 			test3[i] = i;
 		for(int i ; i < 64 ; i++)
-			writeln(test3[i]);
+			write(test3[i],";");
+		writeln();
 		for(int i ; i < 16 ; i++)
 			test3.remove(uniform(0,64));
 		foreach(i ; test3)
-			writeln(i);
+			write(i,";");
+		writeln();
+	}
+	{
+		alias IntMap = TreeMap!(int, int, false);
+		IntMap test0, test1;
+		for(int i ; i < 64 ; i++)
+			test0[i] = i;
+		assert(test0.length == 64, "TreeMap length mismatch");
+		assertThrown!ElementNotFoundException(test0[420]);
+		assertThrown!ElementNotFoundException(test0[666]);
+		for(int i ; i < 64 ; i++)
+			test0.remove(i);
+		assert(test0.length == 0, "Treemap item removal failure");
+		for(int i ; i < 16 ; i++) {
+			test1[i] = i;
+			writeln(test1.toString);
+		}
+	}
+	{
+		alias IntMap = TreeMap!(int, void, true);
+		IntMap test0;
+		for(int i ; i < 64 ; i++) {
+			test0.put(i);
+			writeln(test0.toString());
+		}
+		assert(test0.length == 64, "TreeMap length mismatch");
+		for(int i ; i < 64 ; i++) {
+			test0.remove(i);
+			writeln(test0.toString());
+		}
+		assert(test0.length == 0, "Treemap item removal failure");
+	}
+	{
+		alias IntMap = TreeMap!(int, void, false);
+		IntMap test0;
+		for(int i ; i < 64 ; i++) {
+			test0.put(i);
+			writeln(test0.toString());
+		}
+		assert(test0.length == 64, "TreeMap length mismatch");
+		assertThrown!ElementNotFoundException(test0[420]);
+		assertThrown!ElementNotFoundException(test0[666]);
+		for(int i ; i < 64 ; i++) {
+			test0.remove(i);
+			writeln(test0.toString());
+		}
+		assert(test0.length == 0, "Treemap item removal failure");
 	}
 }
