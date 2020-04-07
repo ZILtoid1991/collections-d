@@ -1,0 +1,5 @@
+name "collections-d"
+description "Advanced containers for D"
+authors "laszl"
+copyright "Copyright © 2020, laszl"
+license "Boost"
