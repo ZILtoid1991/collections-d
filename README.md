@@ -10,7 +10,7 @@ reordering if a regular array was used. Has optimizations to reduce the search a
 
 Has random access for indexing, elements can be only put into the list with the `put()` function.
 
-Order can be set with a boolean in the template, which will reverse the order of elements.
+`alias cmp` can be used both to set how the elements are compared and the way of ordering
 
 ### Using as a sorted set
 
@@ -26,6 +26,6 @@ Accessing is done through keys, and accessing an n-th element needs some computa
 Tree traversal done through `opApply()` and `opApplyReverse()` functions, accessing elements in order when iterated with `foreach`
 or `foreach_reverse`.
 
-To keep development simple, left hand side is fixed to be the lesser side.
+`alias less` can be used to both set how the keys are compared and whether lesser or greater elements are on the left hand side.
 
 Behavior is changed if E set to void, in that case keys will be the only way the TreeMap stores data, like a regular AVL-tree.
