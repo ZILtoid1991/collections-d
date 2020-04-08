@@ -1,16 +1,17 @@
 module collections.sortedlist;
 
 import collections.commons;
+import std.functional : binaryFun;
 
 /**
  * Implements a sorted list of type T.
  * The container ensures that all of it's elements are ordered after any insertion.
  * Has some optimization to stop searching after a given value has passed.
- * If `order` is true, then the greater values are put in front, otherwise starts with the lesser ones.
+ * `cmp` can set both the direction of the array, and what parameters should be tested.
  * If `allowDuplicates` set false, the collection will act like a sorted set over an array, and won't allow any insertion of preexisting values.
  * Important: The elements stored within this container must have opCmp override with attributes `@safe`, `nothrow`, `pure`.
  */
-public struct SortedList(E, bool order = true, bool allowDuplicates = true) {
+public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, alias equal = "a == b") {
 	private E[]			_array;		///The array where the elements are stored.
 	private size_t		begin;		///The position of the current front iteration.
 	private size_t		end;		///The position of the current back iteration.
@@ -25,174 +26,105 @@ public struct SortedList(E, bool order = true, bool allowDuplicates = true) {
         assert(this._array.length == _array.length);
         assert(this._array.length == end);
 	}
+	/**
+	 * Constructs a sorted list out from a range.
+	 */
+	public this(Range)(Range src) {
+		foreach (E key; src) {
+            put(key);
+        }
+        //assert(this._array.length == _array.length);
+        assert(this._array.length == end);
+	}
     /**
 	 * Adds a new element while keeping the order intact.
-	 * TO DO: Optimize insertion to not use insertInPlace and array slicing in the future.
+	 *
+	 * TO DO: Maybe even more optimizations? Maybe look where the element would fit, then shift that position?
 	 */
 	void put(E a) @safe nothrow pure {
-		import std.array : insertInPlace;
-		//import std.stdio : write, writeln;
-		//write(a, ';');
-		static if(!order){
-			foreach_reverse(i, b; _array) {
-				static if(!allowDuplicates) {
-					if(a == b) return;
-				} else {
-					if(a == b) {
-						try {
-							insertInPlace(_array, i + 1, a);
-						} catch(Exception) {}
-						end++;
-						return;
-					}
-				}
-				if(a > b) {
-					try {
-						insertInPlace(_array, i + 1, a);
-					} catch(Exception) {}
-					end++;
-					return;
-				}
-			}
-			_array = a ~ _array;
-		} else {
-			foreach_reverse(i, b; _array) {
-				static if(!allowDuplicates) {
-					if(a == b) return;
-				} else {
-					if(a == b) {
-						try {
-							insertInPlace(_array, i + 1, a);
-						} catch(Exception) {}
-						end++;
-						return;
-					}
-				}
-				if(a < b) {
-					try {
-						insertInPlace(_array, i + 1, a);
-					} catch(Exception) {}
-					//writeln(i);
-					end++;
-					return;
-				}
-				//write(i,';');
-			}
-			_array = a ~ _array;
+		static if(!allowDuplicates){
+			if(has(a)) return;
 		}
+		_array.length = _array.length + 1;
+		for(sizediff_t i = _array.length - 2 ; i >= 0 ; i--) {
+			E b = _array[i];
+			if(binaryFun!cmp(a, b)) { //first position found
+				_array[i + 1] = a;
+				end++;
+				return;
+			} else {
+				_array[i + 1] = b;
+			}
+		}
+		_array[0] = a;
         end++;
 	}
-	/+void put(E a) @safe nothrow pure {
-		import std.array : insertInPlace;
-		foreach_reverse(i, b; _array) {
-			static if(!allowDuplicates) {
-				if(a == b) return;
-			} else {
-				if(a == b) {
-					try {
-						insertInPlace(_array, i + 1, a);
-					} catch(Exception) {}
-					end++;
-					return;
-				}
-			}
-			static if(!order) {	
-				if(a > b) {
-					try {
-						insertInPlace(_array, i + 1, a);
-					} catch(Exception) {}
-					end++;
-					return;
-				}
-			} else {
-				if(a < b) {
-					try {
-						insertInPlace(_array, i + 1, a);
-					} catch(Exception) {}
-					end++;
-					return;
-				}
+	/**
+	 * Removes the n-th element while keeping the order intact.
+	 * Returns the removed element.
+	 */
+	E remove(size_t n) @safe nothrow pure {
+		E result = _array[n];
+		if(n != _array.length) {
+			for ( ; n < _array.length - 1 ; n++) {
+				_array[n] = _array[n + 1];
 			}
 		}
-		static if(!order) _array ~= a;
-		else _array = a ~ _array;
-        end++;
-	}+/
-    /**
-     * Removes the n-th element while keeping the order intact.
-     * Returns the removed element.
-     */
-    E remove(size_t n) @safe nothrow pure {
-        import std.algorithm.mutation : remove;
-        E result = _array[n];
-        _array = remove(_array, n);
-        end--;
-        return result;
+		_array.length = _array.length - 1;
+		end--;
+		return result;
     }
 	static if(!allowDuplicates) {
 		/**
 		 * Removes the element which is equal with the given one if the template is set to not allow duplicates.
 		 * Returns the removed element, or E.init if not found.
 		 */
-		E removeByElem(E b) @safe nothrow pure {
-			import std.algorithm.mutation : remove;
-			foreach(i, a; _array) {
-				if(a == b) {
-					_array = remove(_array, i);
-					end--;
-					return a;
-				}
+		E removeByElem(E a) @safe nothrow pure {
+			foreach_reverse(i, b; _array) {
+				if(binaryFun!equal(a, b)) return this.remove(i);
+				else if(binaryFun!cmp(a, b)) break;
 			}
 			return E.init;
 		}
 		/**
 		 * Returns whether the set has the given element.
 		 */
-		bool has(E elem) @nogc @safe nothrow pure {
-			foreach(e; _array) {
-				static if(order) {
-					if(e == elem) return true;
-					else if(e < elem) return false;
-				} else {
-					if(e == elem) return true;
-					else if(e > elem) return false;
-				}
+		bool has(E a) @nogc @safe nothrow pure {
+			foreach_reverse(i, b; _array) {
+				if(binaryFun!equal(a,b)) return true;
+				else if(binaryFun!cmp(a,b)) break;
 			}
 			return false;
 		}
 		/**
 		 * Returns the index of the given element, or throws an ElementNotFoundException if not found.
 		 */
-		size_t which(E elem) @safe pure {
-			foreach(size_t i ,E e; _array) {
-				static if(order) {
-					if(e == elem) return i;
-					else if(e < elem) throw new ElementNotFoundException("Element not found!");
-				} else {
-					if(e == elem) return i;
-					else if(e > elem) throw new ElementNotFoundException("Element not found!");
-				}
+		size_t which(E a) @safe pure {
+			foreach_reverse(i, b; _array) {
+				if(binaryFun!equal(a,b)) return i;
+				else if(binaryFun!cmp(a,b)) break;
 			}
 			throw new ElementNotFoundException("Element not found!");
 		}
 		/**
 	 	 * Returns a slice from the list, but the slicing is done by element.
-		 * Search is done by boundary.
+		 * Search is done in a way that if either cmp or equals is true to an element, its position will be chosen
+		 * for the slice.
 	 	 */
-		SortedList!(E, order, allowDuplicates) sliceByElem(E from, E to) @safe pure {
-			size_t f, t;
-			foreach(size_t i ,E e; _array) {
-				static if(order) {
-					if(e <= from) f = i;
-				} else {
-					if(e >= from) f = i;
+		SortedList!(E, cmp, allowDuplicates, equal) sliceByElem(E from, E to) @safe pure {
+			size_t f, t = _array.length;
+			E a = from;
+			foreach_reverse(size_t i ,E b; _array) {
+				if(binaryFun!cmp(a,b) || binaryFun!equal(a,b)){ 
+					f = i;
+					break;
 				}
 			}
-			foreach(size_t i ,E e; _array) {
-				static if(order) {
-					if(e <= to) t = i;
-				} else {
-					if(e >= to) t = i;
+			a = to;
+			foreach_reverse(size_t i ,E b; _array) {
+				if(binaryFun!cmp(a,b) || binaryFun!equal(a,b)){ 
+					t = i;
+					break;
 				}
 			}
 			return opSlice(f, t);
@@ -210,24 +142,24 @@ public struct SortedList(E, bool order = true, bool allowDuplicates = true) {
 	@property E front() @nogc @safe nothrow pure {
 		return _array[begin];
 	}
-	/**
+	/+/**
 	 * Returns the element at the front.
 	 */
 	@property ref E frontRef() @nogc @safe nothrow pure {
 		return _array[begin];
-	}
+	}+/
 	/**
 	 * Returns the element at the back.
 	 */
 	@property E back() @nogc @safe nothrow pure {
 		return _array[end - 1];
 	}
-	/**
+	/+/**
 	 * Returns the element at the back.
 	 */
 	@property ref E backRef() @nogc @safe nothrow pure {
 		return _array[end - 1];
-	}
+	}+/
 	/**
 	 * Returns the element at begin and increments the position by one.
 	 */
@@ -275,10 +207,16 @@ public struct SortedList(E, bool order = true, bool allowDuplicates = true) {
 	}
 	alias opDollar = length;
 	/**
+	 * Sets the reserve of the underlying array and returns the current reserve.
+	 */
+	@property size_t reserve(size_t amount) @safe pure nothrow {
+		return _array.reserve(amount);
+	}
+	/**
 	 * Returns a slice from the list.
 	 */
-	SortedList!(E, order, allowDuplicates) opSlice(size_t i0, size_t i1) @safe nothrow pure {
-		return SortedList!(E, order, allowDuplicates)(_array[i0..i1]);
+	SortedList!(E, cmp, allowDuplicates, equal) opSlice(size_t i0, size_t i1) @safe nothrow pure {
+		return SortedList!(E, cmp, allowDuplicates, equal)(_array[i0..i1]);
 	}
 	/**
 	 * Returns a copy of the underlying array.
@@ -294,8 +232,8 @@ public struct SortedList(E, bool order = true, bool allowDuplicates = true) {
 
 @safe unittest {
 	import std.stdio : writeln;
-	alias SortedIntList = SortedList!(int, true, true);
-	alias SortedIntSet = SortedList!(int, true, false);
+	alias SortedIntList = SortedList!(int, "a < b", true);
+	alias SortedIntSet = SortedList!(int, "a < b", false);
 	SortedIntList sil;
 	sil.put(5);
 	assert(sil.arrayOf == [5], sil.toString);
@@ -345,8 +283,8 @@ public struct SortedList(E, bool order = true, bool allowDuplicates = true) {
 
 @safe unittest {
 	import std.stdio : writeln;
-	alias SortedIntList = SortedList!(int, false, true);
-	alias SortedIntSet = SortedList!(int, false, false);
+	alias SortedIntList = SortedList!(int, "a > b", true);
+	alias SortedIntSet = SortedList!(int, "a > b", false);
 	SortedIntList sil;
 	sil.put(5);
 	assert(sil.arrayOf == [5], sil.toString);
