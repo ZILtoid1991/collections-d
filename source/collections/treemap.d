@@ -1,15 +1,18 @@
 module collections.treemap;
 
-
+import std.functional : binaryFun;
 import collections.commons;
 /**
  * Implements an AVL tree backed treemap.
  * Intended to used as an alternative to D's own associative array.
  * If E set to void, then it works more like a regular tree datastructure, and can be indexed with any type K has an
  * opCmp override.
- * Nodes always have the lesser elements on the left side.
+ * `nogcIndexing` changes the behavior of `opIndex` if no match is found. If set to true, indexing returns the default
+ * value if no match found, which will need some design consideration. If set to false, indexing throws an exception
+ * if no match found.
+ * Nodes should have the lesser elements on the left side. Behavior can be changed with `less`.
  */
-public struct TreeMap(K, E, bool nogcIndexing) {
+public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 	private struct Node {
 		K				key;		///Identifier key, also used for automatic sorting
 		static if (E.stringof != "void")
@@ -43,12 +46,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			 * Implements a simple left-to-right tree traversal.
 			 */
 			int opApply(scope int delegate(ref E) dg) {
-				if(left)
+				if(left !is null)
 					if(left.opApply(dg))
 						return 1;
 				if(dg(elem))
 					return 1;
-				if(right)
+				if(right !is null)
 					if(right.opApply(dg))
 						return 1;
 				return 0;
@@ -57,12 +60,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			 * Implements a simple left-to-right tree traversal.
 			 */
 			int opApply(scope int delegate(K, ref E) dg) {
-				if(left)
+				if(left !is null)
 					if(left.opApply(dg))
 						return 1;
 				if(dg(key, elem))
 					return 1;
-				if(right)
+				if(right !is null)
 					if(right.opApply(dg))
 						return 1;
 				return 0;
@@ -71,12 +74,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			 * Implements a simple right-to-left tree traversal.
 			 */
 			int opApplyReverse(scope int delegate(ref E) dg) {
-				if(right)
+				if(right !is null)
 					if(right.opApply(dg))
 						return 1;
 				if(dg(elem))
 					return 1;
-				if(left)
+				if(left !is null)
 					if(left.opApply(dg))
 						return 1;
 				return 0;
@@ -85,12 +88,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			 * Implements a simple right-to-left tree traversal.
 			 */
 			int opApplyReverse(scope int delegate(K, ref E) dg) {
-				if(right)
+				if(right !is null)
 					if(right.opApply(dg))
 						return 1;
 				if(dg(key, elem))
 					return 1;
-				if(left)
+				if(left !is null)
 					if(left.opApply(dg))
 						return 1;
 				return 0;
@@ -100,12 +103,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			 * Implements a simple left-to-right tree traversal.
 			 */
 			int opApply(scope int delegate(K) dg) {
-				if(left)
+				if(left !is null)
 					if(left.opApply(dg))
 						return 1;
 				if(dg(key))
 					return 1;
-				if(right)
+				if(right !is null)
 					if(right.opApply(dg))
 						return 1;
 				return 0;
@@ -114,12 +117,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			 * Implements a simple right-to-left tree traversal.
 			 */
 			int opApplyReverse(scope int delegate(K) dg) {
-				if(right)
+				if(right !is null)
 					if(right.opApply(dg))
 						return 1;
 				if(dg(key))
 					return 1;
-				if(left)
+				if(left !is null)
 					if(left.opApply(dg))
 						return 1;
 				return 0;
@@ -137,12 +140,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			 * Returns the found element if match found.
 			 * Returns E.init if match not found.
 			 */
-			E opIndex(T)(T key) @nogc @safe pure nothrow {
+			E opIndex(K key) @nogc @safe pure nothrow {
 				Node* crnt = root;
 				while(crnt) {
-					if(crnt.key > key) {		//key is smaller than current element's, look at lesser elements
+					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
 						crnt = crnt.left;
-					} else if(crnt.key < key) {			//key is greater than current element's, look at greater elements
+					} else if(binaryFun!less(crnt.key, key)) {			//key is greater than current element's, look at greater elements
 						crnt = crnt.right;
 					} else {	//match found, return element
 						return crnt.elem;
@@ -154,12 +157,12 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			/**
 			 * Returns the pointer of the element, or null if key not found.
 			 */
-			E* ptrOf(T)(T key) @nogc @safe pure nothrow {
+			E* ptrOf(K key) @nogc @safe pure nothrow {
 				Node* crnt = root;
 				while(crnt) {
-					if(crnt.key > key) {		//key is smaller than current element's, look at lesser elements
+					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
 						crnt = crnt.left;
-					} else if(crnt.key < key) {			//key is greater than current element's, look at greater elements
+					} else if(binaryFun!less(crnt.key, key)) {			//key is greater than current element's, look at greater elements
 						crnt = crnt.right;
 					} else {	//match found, return element
 						return &crnt.elem;
@@ -177,9 +180,9 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			ref E opIndex(T)(T key) @safe pure {
 				Node* crnt = root;
 				while(crnt) {
-					if(crnt.key > key) {		//key is smaller than current element's, look at lesser elements
+					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
 						crnt = crnt.left;
-					} else if(crnt.key < key) {			//key is greater than current element's, look at greater elements
+					} else if(binaryFun!less(crnt.key, key)) {			//key is greater than current element's, look at greater elements
 						crnt = crnt.right;
 					} else {	//match found, return element
 						return crnt.elem;
@@ -199,9 +202,9 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			K opIndex(T)(T key) @nogc @safe pure nothrow {
 				Node* crnt = root;
 				while(crnt) {
-					if(crnt.key > key) {		//key is smaller than current element's, look at lesser elements
+					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
 						crnt = crnt.left;
-					} else if(crnt.key < key) {			//key is greater than current element's, look at greater elements
+					} else if(binaryFun!less(crnt.key, key)) {			//key is greater than current element's, look at greater elements
 						crnt = crnt.right;
 					} else {	//match found, return element
 						return crnt.key;
@@ -218,9 +221,9 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			K opIndex(T)(T key) @safe pure {
 				Node* crnt = root;
 				while(crnt) {
-					if(crnt.key > key) {		//key is smaller than current element's, look at lesser elements
+					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
 						crnt = crnt.left;
-					} else if(crnt.key < key) {			//key is greater than current element's, look at greater elements
+					} else if(binaryFun!less(crnt.key, key)) {			//key is greater than current element's, look at greater elements
 						crnt = crnt.right;
 					} else {	//match found, return element
 						return crnt.key;
@@ -244,24 +247,24 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			}
 			Node* crnt = root;
 			while(crnt) {
-				if(crnt.key == key) {	//Another best case scenario: a keymatch is found
-					crnt.elem = elem;
-					crnt = null;
-				} else if(crnt.key > key) {	//Key is smaller, look at left hand side
+				if(binaryFun!less(key, crnt.key)) {	//Key is smaller, look at left hand side
 					if(crnt.left is null) {
 						crnt.left = new Node(key, elem, null, null);
 						crnt = null;
 						nOfElements++;
 					}
 					else crnt = crnt.left;
-				} else {		//Key must be greater, look ay right hand side
+				} else if(binaryFun!less(crnt.key, key)) {		//Key is greater, look ay right hand side
 					if(crnt.right is null) {
 						crnt.right = new Node(key, elem, null, null);
 						crnt = null;
 						nOfElements++;
 					}
 					else crnt = crnt.right;
-				}
+				} else {	//Another best case scenario: a keymatch is found
+					crnt.elem = elem;
+					crnt = null;
+				} 
 			}
 			rebalance();
 			return elem;
@@ -274,13 +277,13 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			import core.memory : GC;
 			Node* crnt = root, prev;
 			while(crnt !is null) {
-				if(crnt.key > key) {		//Key has a lesser value, search on the left.
+				if(binaryFun!less(key, crnt.key)) {		//Key has a lesser value, search on the left.
 					prev = crnt;
 					crnt = crnt.left;
-				} else if(crnt.key < key) {		//Key has a greater value, search on the right
+				} else if(binaryFun!less(crnt.key, key)) {		//Key has a greater value, search on the right
 					prev = crnt;
 					crnt = crnt.right;
-				} else {				//Key must have been found
+				} else {				//Keymatch must have been found
 					E result = crnt.elem;
 					//dispose of the node properly if needed
 					if(prev !is null) {
@@ -289,20 +292,21 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 							remove(temp.key);
 							crnt.key = temp.key;
 							crnt.elem = temp.elem;
+							return result;
 						} else if(!crnt.left && crnt.right) {
-							if(prev.key > key) {	//The node was on the left side of the previous one
+							if(binaryFun!less(key, prev.key)) {	//The node was on the left side of the previous one
 								prev.left = crnt.right;
 							} else {
 								prev.right = crnt.right;
 							}
 						} else if(crnt.left && !crnt.right) {
-							if(prev.key > key) {	//The node was on the left side of the previous one
+							if(binaryFun!less(key, prev.key)) {	//The node was on the left side of the previous one
 								prev.left = crnt.left;
 							} else {
 								prev.right = crnt.left;
 							}
 						} else { //Best case scenario: there are no child nodes, just dereference from prev
-							if(prev.key > key) {	//The node was on the left side of the previous one
+							if(binaryFun!less(key, prev.key)) {	//The node was on the left side of the previous one
 								prev.left = null;
 							} else {
 								prev.right = null;
@@ -314,6 +318,7 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 							remove(temp.key);
 							crnt.key = temp.key;
 							crnt.elem = temp.elem;
+							return result;
 						} else if(!crnt.left && crnt.right) {
 							root = crnt.right;
 						} else if(crnt.left && !crnt.right) {
@@ -341,11 +346,7 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 			}
 			Node* crnt = root;
 			while(crnt) {
-				/+if(crnt.key == key) {	//Another best case scenario: a keymatch is found
-					crnt.elem = elem;
-					crnt = null;
-				} else +/
-				if(crnt.key > key) {	//Key is smaller, look at left hand side
+				if(binaryFun!less(key, crnt.key)) {	//Key is smaller, look at left hand side
 					if(crnt.left is null) {
 						crnt.left = new Node(key, null, null);
 						crnt = null;
@@ -368,14 +369,14 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 		 * Removes an item by key.
 		 * Returns the removed item if found, or K.init if not.
 		 */
-		public K remove(T)(T key) @safe pure nothrow {
+		public K remove(K key) @safe pure nothrow {
 			import core.memory : GC;
 			Node* crnt = root, prev;
 			while(crnt !is null) {
-				if(crnt.key > key) {		//Key has a lesser value, search on the left.
+				if(binaryFun!less(key,crnt.key)) {		//Key has a lesser value, search on the left.
 					prev = crnt;
 					crnt = crnt.left;
-				} else if(crnt.key < key) {		//Key has a greater value, search on the right
+				} else if(binaryFun!less(crnt.key, key)) {		//Key has a greater value, search on the right
 					prev = crnt;
 					crnt = crnt.right;
 				} else {				//Key must have been found
@@ -386,21 +387,21 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 							Node* temp = findMin(crnt.right);
 							remove(temp.key);
 							crnt.key = temp.key;
-							//crnt.elem = temp.elem;
+							return result;
 						} else if(!crnt.left && crnt.right) {
-							if(prev.key > key) {	//The node was on the left side of the previous one
+							if(binaryFun!less(key, prev.key)) {	//The node was on the left side of the previous one
 								prev.left = crnt.right;
 							} else {
 								prev.right = crnt.right;
 							}
 						} else if(crnt.left && !crnt.right) {
-							if(prev.key > key) {	//The node was on the left side of the previous one
+							if(binaryFun!less(key, prev.key)) {	//The node was on the left side of the previous one
 								prev.left = crnt.left;
 							} else {
 								prev.right = crnt.left;
 							}
 						} else { //Best case scenario: there are no child nodes, just dereference from prev
-							if(prev.key > key) {	//The node was on the left side of the previous one
+							if(binaryFun!less(key, prev.key)) {	//The node was on the left side of the previous one
 								prev.left = null;
 							} else {
 								prev.right = null;
@@ -411,7 +412,7 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 							Node* temp = findMin(crnt.right);
 							remove(temp.key);
 							crnt.key = temp.key;
-							//crnt.elem = temp.elem;
+							return result;
 						} else if(!crnt.left && crnt.right) {
 							root = crnt.right;
 						} else if(crnt.left && !crnt.right) {
@@ -432,7 +433,7 @@ public struct TreeMap(K, E, bool nogcIndexing) {
 	 * Returns the smallest node
 	 */
 	private Node* findMin(Node* currentNode) @nogc @safe pure nothrow {
-		while(currentNode.left){
+		while(currentNode.left !is null){
 			currentNode = currentNode.left;
 		}
 		return currentNode;
