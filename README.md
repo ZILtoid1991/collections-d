@@ -29,5 +29,19 @@ or `foreach_reverse`.
 `alias less` can be used to both set how the keys are compared and whether lesser or greater elements are on the left hand side.
 
 Behavior is changed if E set to void, in that case keys will be the only way the TreeMap stores data, like a regular AVL-tree, or a
-tree set.
+treeset.
 
+## HashMap
+
+Implements a hashmap using TreeMap as a backend, and MurMurHash3/32 as the hashing algorithm. Future versions will allow using 
+LinkedList as a backend if needed.
+
+## HashSet
+
+Implements a hashset, similarly to hashmap. Operation is done through set operators only, as it only stores the keys of the hashed
+elements.
+
+## LinkedList
+
+A list with pretty low insertion cost. Ideal for applications where frequent reordering is needed. Can work as a set too by setting
+`allowDuplicates` false.
