@@ -129,6 +129,65 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 			}
 			return opSlice(f, t);
 		}
+		/**
+		 * Set operators.
+		 * Enables math operations on sets, like unions and intersections.
+		 * Could work on ranges in general as long as they implement some basic functions, like iteration.
+		 */
+		SortedList!(E, cmp, allowDuplicates, equal) opBinary(string op, R)(R rhs) {
+			static if(op == "|" || op == "~") {//Union
+				SortedList!(E, cmp, allowDuplicates, equal) result;
+				result.end = this.end;
+				result._array = this._array.dup;
+				foreach(e ; rhs){
+					result.put(e);
+				}
+				return result;
+			} else static if(op == "&" || op == "*") {//Intersection
+				SortedList!(E, cmp, allowDuplicates, equal) result;
+				foreach(e ; rhs){
+					if(this.has(e)) result.put(e);
+				}
+				return result;
+			} else static if(op == "-" || op == "/") {//Complement
+				SortedList!(E, cmp, allowDuplicates, equal) result;
+				foreach(e ; rhs){
+					result.removeByElem(e);
+				}
+				return result;
+			} else static if(op == "^"){//Difference
+				SortedList!(E, cmp, allowDuplicates, equal) result = this | rhs;
+				SortedList!(E, cmp, allowDuplicates, equal) common = this & rhs;
+				foreach(e ; common){
+					result.removeByElem(e);
+				}
+				return result;
+			} else static assert(0, "Operator " ~ op ~ "not supported");
+		}
+		/**
+		 * Set operators.
+		 */
+		SortedList!(E, cmp, allowDuplicates, equal) opOpAssign(string op)(E value) {
+			static if(op == "~=") {//Append
+				put(value);
+			} else static if(op == "-=" || op == "/=") {
+				removeByElem(value);
+			} else static assert(0, "Operator " ~ op ~ "not supported");
+			return this;
+		}
+		/**
+		 * Set operators.
+		 */
+		SortedList!(E, cmp, allowDuplicates, equal) opOpAssign(string op, R)(R range) {
+			static if(op == "~=" || op == "|=") {//Append
+				foreach(val; range)
+					put(val);
+			} else static if(op == "-=" || op == "/=") {
+				foreach(val; range)
+					removeByElem(val);
+			} else static assert(0, "Operator " ~ op ~ "not supported");
+			return this;
+		}
 	}
 	/**
 	 * Returns a copy of this struct.

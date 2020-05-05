@@ -28,4 +28,6 @@ or `foreach_reverse`.
 
 `alias less` can be used to both set how the keys are compared and whether lesser or greater elements are on the left hand side.
 
-Behavior is changed if E set to void, in that case keys will be the only way the TreeMap stores data, like a regular AVL-tree.
+Behavior is changed if E set to void, in that case keys will be the only way the TreeMap stores data, like a regular AVL-tree, or a
+tree set.
+

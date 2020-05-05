@@ -1,12 +1,12 @@
 module collections.treemap;
 
 import std.functional : binaryFun;
-import collections.commons;
+public import collections.commons;
 /**
  * Implements an AVL tree backed treemap.
  * Intended to used as an alternative to D's own associative array.
- * If E set to void, then it works more like a regular tree datastructure, and can be indexed with any type K has an
- * opCmp override.
+ * If E set to void, then it works more like a regular tree datastructure (as a tree set), and can be indexed with any
+ * type K has an opCmp override.
  * `nogcIndexing` changes the behavior of `opIndex` if no match is found. If set to true, indexing returns the default
  * value if no match found, which will need some design consideration. If set to false, indexing throws an exception
  * if no match found.
@@ -130,13 +130,12 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		}
 	}
 	private size_t		nOfElements;///Current number of elements in this collection
-	private Node*		root;		///The root element of the 
+	private Node*		root;		///The root element of the tree
 	
 	static if (E.stringof != "void"){
 		static if (nogcIndexing) {
 			/**
 			 * @nogc capable indexing.
-			 * Can be indexed with any type of value as long as K.opCmp supports it.
 			 * Returns the found element if match found.
 			 * Returns E.init if match not found.
 			 */
@@ -177,7 +176,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			 * Can be indexed with any type of value as long as K.opCmp supports it.
 			 * Returns the found element if match found.
 			 */
-			ref E opIndex(T)(T key) @safe pure {
+			ref E opIndex(K key) @safe pure {
 				Node* crnt = root;
 				while(crnt) {
 					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
@@ -192,10 +191,86 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			}
 		}
 	} else {
+		/**
+		 * Returns true if the element exists within the set, false otherwise.
+		 */
+		bool has(T)(T key)@nogc @safe pure nothrow{
+			Node* crnt = root;
+			while(crnt) {
+				if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
+					crnt = crnt.left;
+				} else if(binaryFun!less(crnt.key, key)) {			//key is greater than current element's, look at greater elements
+					crnt = crnt.right;
+				} else {	//match found, return true
+					return true;
+				}
+			}
+			return false;
+		}
+		/**
+		 * Set operators.
+		 * Enables math operations on sets, like unions and intersections.
+		 * Could work on ranges in general as long as they implement some basic functions, like iteration.
+		 */
+		TreeMap!(K, E, nogcIndexing, less) opBinary(string op, R)(R rhs) {
+			static if(op == "|" || op == "~") {//Union
+				TreeMap!(K, E, nogcIndexing, less) result;
+				foreach(e ; root)
+					result.put(e);
+				foreach(e ; rhs) 
+					result.put(e);
+				return result;
+			} else static if(op == "&" || op == "*") {//Intersection
+				TreeMap!(K, E, nogcIndexing, less) result;
+				foreach(e ; rhs){
+					if(this.has(e)) result.put(e);
+				}
+				return result;
+			} else static if(op == "-" || op == "/") {//Complement
+				TreeMap!(K, E, nogcIndexing, less) result;
+				foreach(e ; root)
+					result.put(e);
+				foreach(e ; rhs){
+					result.removeByElem(e);
+				}
+				return result;
+			} else static if(op == "^"){//Difference
+				TreeMap!(K, E, nogcIndexing, less) result = this | rhs;
+				TreeMap!(K, E, nogcIndexing, less) common = this & rhs;
+				foreach(e ; common){
+					result.removeByElem(e);
+				}
+				return result;
+			} else static assert(0, "Operator " ~ op ~ "not supported");
+		}
+		/**
+		 * Set operators.
+		 */
+		TreeMap!(K, E, nogcIndexing, less) opOpAssign(string op)(K value) {
+			static if(op == "~=") {//Append
+				put(value);
+			} else static if(op == "-=" || op == "/=") {
+				removeByElem(value);
+			} else static assert(0, "Operator " ~ op ~ "not supported");
+			return this;
+		}
+		/**
+		 * Set operators.
+		 */
+		TreeMap!(K, E, nogcIndexing, less) opOpAssign(string op, R)(R range) {
+			static if(op == "~=" || op == "|=") {//Append
+				foreach(val; range)
+					put(val);
+			} else static if(op == "-=" || op == "/=") {
+				foreach(val; range)
+					removeByElem(val);
+			} else static assert(0, "Operator " ~ op ~ "not supported");
+			return this;
+		}
 		static if (nogcIndexing) {
 			/**
 			 * @nogc capable indexing.
-			 * Can be indexed with any type of value as long as K.opCmp supports it.
+			 * Can be indexed with any type of value as long as K.opCmp supports it and `alias less` hasn't been changed.
 			 * Returns the found element if match found.
 			 * Returns E.init if match not found.
 			 */
@@ -212,10 +287,11 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 				}
 				return K.init;
 			}
+			
 		} else {
 			/**
 			 * Indexing function that relies on the GC, and throws if no match found
-			 * Can be indexed with any type of value as long as K.opCmp supports it.
+			 * Can be indexed with any type of value as long as K.opCmp supports it and `alias less` hasn't been changed.
 			 * Returns the found element if match found.
 			 */
 			K opIndex(T)(T key) @safe pure {
@@ -273,7 +349,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		 * Removes an item by key.
 		 * Returns the removed item if found, or E.init if not.
 		 */
-		public E remove(T)(T key) @safe pure nothrow {
+		public E remove(K key) @safe pure nothrow {
 			import core.memory : GC;
 			Node* crnt = root, prev;
 			while(crnt !is null) {
@@ -336,7 +412,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		}
 	} else {
 		/**
-		 * Puts an element into the TreeMap
+		 * Puts an element into the treeset
 		 */
 		public K put(K key) @safe pure nothrow {
 			if(!root){	//Best case scenario: root is empty
@@ -353,13 +429,15 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 						nOfElements++;
 					}
 					else crnt = crnt.left;
-				} else {		//Key must be greater, look ay right hand side
+				} else if(binaryFun!less(crnt.key, key)) {		//Key is greater, look ay right hand side
 					if(crnt.right is null) {
 						crnt.right = new Node(key, null, null);
 						crnt = null;
 						nOfElements++;
 					}
 					else crnt = crnt.right;
+				} else {	//Kaymatch found
+					crnt.key = key;
 				}
 			}
 			rebalance();
@@ -369,7 +447,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		 * Removes an item by key.
 		 * Returns the removed item if found, or K.init if not.
 		 */
-		public K remove(K key) @safe pure nothrow {
+		public K removeByElem(K key) @safe pure nothrow {
 			import core.memory : GC;
 			Node* crnt = root, prev;
 			while(crnt !is null) {
@@ -428,6 +506,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			}
 			return K.init;
 		}
+		alias remove = removeByElem;
 	}
 	/**
 	 * Returns the smallest node
@@ -544,7 +623,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		return nOfElements;
 	}
 	/**
-	 * returns the string representation of the tree.
+	 * Returns the string representation of the tree.
 	 */
 	public string toString() const {
 		if(root !is null)
