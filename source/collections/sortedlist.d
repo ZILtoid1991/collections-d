@@ -51,7 +51,7 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 			if(binaryFun!cmp(a, b)) { //first position found
 				_array[i + 1] = a;
 				end++;
-				return;
+				return a;
 			} else {
 				_array[i + 1] = b;
 			}

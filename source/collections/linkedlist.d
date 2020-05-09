@@ -308,7 +308,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 				root = new Node(value, null);
 			} else {
 				for (size_t i ; i < nOfElements ; i++) {
-					if (binaryFun!equal(root.getPtr(i).elem, value)) return E.init;
+					if (binaryFun!equal(getPtr(i).elem, value)) return E.init;
 				}
 				getPtr(nOfElements - 1).next = new Node(value, null);
 			}
