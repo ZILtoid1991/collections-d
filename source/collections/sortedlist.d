@@ -41,9 +41,9 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 	 *
 	 * TO DO: Maybe even more optimizations? Maybe look where the element would fit, then shift that position?
 	 */
-	void put(E a) @safe nothrow pure {
+	E put(E a) @safe nothrow pure {
 		static if(!allowDuplicates){
-			if(has(a)) return;
+			if(has(a)) return E.init;
 		}
 		_array.length = _array.length + 1;
 		for(sizediff_t i = _array.length - 2 ; i >= 0 ; i--) {
@@ -58,6 +58,7 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 		}
 		_array[0] = a;
         end++;
+		return a;
 	}
 	/**
 	 * Removes the n-th element while keeping the order intact.
