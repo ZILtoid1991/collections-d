@@ -100,7 +100,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 			 * Returns true if the set has the value.
 			 */
 			bool has(E value) @nogc @safe pure nothrow {
-				if (elem == value) return true;
+				if (binaryFun!equal(elem, value)) return true;
 				else if (next !is null) return next.has(value);
 				else return false;
 			}
@@ -308,7 +308,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 				root = new Node(value, null);
 			} else {
 				for (size_t i ; i < nOfElements ; i++) {
-					if ((*root)[i] == value) return E.init;
+					if (binaryFun!equal(root.getPtr(i).elem, value)) return E.init;
 				}
 				getPtr(nOfElements - 1).next = new Node(value, null);
 			}
