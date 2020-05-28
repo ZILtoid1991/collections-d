@@ -98,6 +98,16 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 			return false;
 		}
 		/**
+		 * Returns the amount of elements found in the set.
+		 */
+		size_t hasRange(R)(R range) @nogc @safe pure nothrow {
+			size_t result;
+			foreach (key; range) {
+				if(has(key)) result++;
+			}
+			return result;
+		}
+		/**
 		 * Returns the index of the given element, or throws an ElementNotFoundException if not found.
 		 */
 		size_t which(E a) @safe pure {
@@ -151,7 +161,7 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 				}
 				return result;
 			} else static if(op == "-" || op == "/") {//Complement
-				SortedList!(E, cmp, allowDuplicates, equal) result;
+				SortedList!(E, cmp, allowDuplicates, equal) result = SortedList!(E, cmp, allowDuplicates, equal)(this);
 				foreach(e ; rhs){
 					result.removeByElem(e);
 				}
@@ -390,4 +400,24 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 	foreach(e; sis) {
 		writeln(e);
 	}
+}
+
+unittest {
+	//test set operators
+	alias IntSet = SortedList!(int, "a > b", false, "a == b");
+	IntSet a = IntSet([1, 3, 5, 7, 9]), b = IntSet([1, 5, 9]), c = IntSet([3, 7]);
+	IntSet union_ab = a | b, union_ac = a | c, union_bc = b | c;
+	IntSet intrsctn_ab = a & b, intrsctn_ac = a & c;
+	IntSet cmplmnt_ab = a - b, cmplmnt_ac = a - c;
+	IntSet diff_ab = a ^ b, diff_ac = a ^ c, diff_bc = b ^ c;
+	assert(union_ab.hasRange([1, 3, 5, 7, 9]) == 5);
+	assert(union_ac.hasRange([1, 3, 5, 7, 9]) == 5);
+	assert(union_bc.hasRange([1, 3, 5, 7, 9]) == 5);
+	assert(intrsctn_ab.hasRange([1, 5, 9]) == 3);
+	assert(intrsctn_ac.hasRange([3, 7]) == 2);
+	assert(cmplmnt_ab.hasRange([3, 7]) == 2);
+	assert(cmplmnt_ac.hasRange([1, 5, 9]) == 3);
+	assert(diff_ab.hasRange([3, 7]) == 2);
+	assert(diff_ac.hasRange([1, 5, 9]) == 3);
+	assert(diff_bc.hasRange([1, 3, 5, 7, 9]) == 5);
 }

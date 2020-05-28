@@ -324,6 +324,16 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 			else return false;
 		}
 		/**
+		 * Returns the amount of elements found in the set.
+		 */
+		public size_t hasRange(R)(R range) @nogc @safe pure nothrow {
+			size_t result;
+			foreach (key; range) {
+				if(has(key)) result++;
+			}
+			return result;
+		}
+		/**
 		 * Set operators.
 		 * Enables math operations on sets, like unions and intersections.
 		 * Could work on ranges in general as long as they implement some basic functions, like iteration.
@@ -343,7 +353,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 				}
 				return result;
 			} else static if(op == "-" || op == "/") {//Complement
-				LinkedList!(E, allowDuplicates, equal) result;
+				LinkedList!(E, allowDuplicates, equal) result = LinkedList!(E, allowDuplicates, equal)(this);
 				foreach(e ; rhs){
 					result.removeByElem(e);
 				}
@@ -496,4 +506,23 @@ unittest {
 	assert(sc.has(10), sc.toString());
 	assert(sd.has(-1), sd.toString());
 	assert(!se.has(-1), se.toString());
+}
+
+unittest {	//test set operators
+	alias IntSet = LinkedList!(int, false);
+	IntSet a = IntSet([1, 3, 5, 7, 9]), b = IntSet([1, 5, 9]), c = IntSet([3, 7]);
+	IntSet union_ab = a | b, union_ac = a | c, union_bc = b | c;
+	IntSet intrsctn_ab = a & b, intrsctn_ac = a & c;
+	IntSet cmplmnt_ab = a - b, cmplmnt_ac = a - c;
+	IntSet diff_ab = a ^ b, diff_ac = a ^ c, diff_bc = b ^ c;
+	assert(union_ab.hasRange([1, 3, 5, 7, 9]) == 5);
+	assert(union_ac.hasRange([1, 3, 5, 7, 9]) == 5);
+	assert(union_bc.hasRange([1, 3, 5, 7, 9]) == 5);
+	assert(intrsctn_ab.hasRange([1, 5, 9]) == 3);
+	assert(intrsctn_ac.hasRange([3, 7]) == 2);
+	assert(cmplmnt_ab.hasRange([3, 7]) == 2);
+	assert(cmplmnt_ac.hasRange([1, 5, 9]) == 3);
+	assert(diff_ab.hasRange([3, 7]) == 2);
+	assert(diff_ac.hasRange([1, 5, 9]) == 3);
+	assert(diff_bc.hasRange([1, 3, 5, 7, 9]) == 5);
 }

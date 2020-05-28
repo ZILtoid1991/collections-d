@@ -132,7 +132,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 	private size_t		nOfElements;///Current number of elements in this collection
 	private Node*		root;		///The root element of the tree
 	
-	static if (E.stringof != "void"){
+	static if (E.stringof != "void") {
 		static if (nogcIndexing) {
 			/**
 			 * @nogc capable indexing.
@@ -192,9 +192,15 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		}
 	} else {
 		/**
+		 * Creates a treeset from a preexisting range.
+		 */
+		public this(R)(R src) @safe pure nothrow {
+			foreach (key; src) put(key);
+		}
+		/**
 		 * Returns true if the element exists within the set, false otherwise.
 		 */
-		bool has(T)(T key)@nogc @safe pure nothrow{
+		public bool has(T)(T key) @nogc @safe pure nothrow {
 			Node* crnt = root;
 			while(crnt) {
 				if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
@@ -208,6 +214,16 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			return false;
 		}
 		/**
+		 * Returns the amount of elements found in the set.
+		 */
+		public size_t hasRange(R)(R range) @nogc @safe pure nothrow {
+			size_t result;
+			foreach (key; range) {
+				if(has(key)) result++;
+			}
+			return result;
+		}
+		/**
 		 * Set operators.
 		 * Enables math operations on sets, like unions and intersections.
 		 * Could work on ranges in general as long as they implement some basic functions, like iteration.
@@ -215,7 +231,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		TreeMap!(K, E, nogcIndexing, less) opBinary(string op, R)(R rhs) {
 			static if(op == "|" || op == "~") {//Union
 				TreeMap!(K, E, nogcIndexing, less) result;
-				foreach(e ; root)
+				foreach(e ; this)
 					result.put(e);
 				foreach(e ; rhs) 
 					result.put(e);
@@ -228,7 +244,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 				return result;
 			} else static if(op == "-" || op == "/") {//Complement
 				TreeMap!(K, E, nogcIndexing, less) result;
-				foreach(e ; root)
+				foreach(e ; this)
 					result.put(e);
 				foreach(e ; rhs){
 					result.removeByElem(e);
@@ -438,6 +454,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 					else crnt = crnt.right;
 				} else {	//Kaymatch found
 					crnt.key = key;
+					crnt = null;
 				}
 			}
 			rebalance();
@@ -546,38 +563,57 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		 * Implements a simple left-to-right tree traversal.
 		 */
 		int opApply(scope int delegate(ref E) dg) {
-			return root.opApply(dg);
+			if(root !is null) return root.opApply(dg);
+			else return 0;
 		}
 		/**
 		 * Implements a simple left-to-right tree traversal.
 		 */
 		int opApply(scope int delegate(K, ref E) dg) {
-			return root.opApply(dg);
+			if(root !is null) return root.opApply(dg);
+			else return 0;
 		}
 		/**
 		 * Implements a simple right-to-left tree traversal.
 		 */
 		int opApplyReverse(scope int delegate(ref E) dg) {
-			return root.opApplyReverse(dg);
+			if(root !is null) return root.opApplyReverse(dg);
+			else return 0;
 		}
 		/**
 		 * Implements a simple right-to-left tree traversal.
 		 */
 		int opApplyReverse(scope int delegate(K, ref E) dg) {
-			return root.opApplyReverse(dg);
+			if(root !is null) return root.opApplyReverse(dg);
+			else return 0;
 		}
 	} else {
 		/**
 		 * Implements a simple left-to-right tree traversal by depth.
 		 */
 		int opApply(scope int delegate(K) dg) {
-			return root.opApply(dg);
+			if(root !is null) return root.opApply(dg);
+			else return 0;
 		}
 		/**
 		 * Implements a simple right-to-left tree traversal.
 		 */
 		int opApplyReverse(scope int delegate(K) dg) {
-			return root.opApplyReverse(dg);
+			if(root !is null) return root.opApplyReverse(dg);
+			else return 0;
+		}
+		/**
+		 * Returns an array representation of the set.
+		 */
+		@property K[] arrayOf() {
+			K[] result;
+			result.reserve(nOfElements);
+			int putToResult(K elem) @safe pure nothrow {
+				result ~= elem;
+				return 0;
+			}
+			root.opApply(&putToResult);
+			return result;
 		}
 	}
 	/**
@@ -710,5 +746,23 @@ unittest {
 			writeln(test0.toString());
 		}
 		assert(test0.length == 0, "Treemap item removal failure");
+	}
+	{	//test set operators
+		alias IntSet = TreeMap!(int, void, true);
+		IntSet a = IntSet([1, 3, 5, 7, 9]), b = IntSet([1, 5, 9]), c = IntSet([3, 7]);
+		IntSet union_ab = a | b, union_ac = a | c, union_bc = b | c;
+		IntSet intrsctn_ab = a & b, intrsctn_ac = a & c;
+		IntSet cmplmnt_ab = a - b, cmplmnt_ac = a - c;
+		IntSet diff_ab = a ^ b, diff_ac = a ^ c, diff_bc = b ^ c;
+		assert(union_ab.hasRange([1, 3, 5, 7, 9]) == 5);
+		assert(union_ac.hasRange([1, 3, 5, 7, 9]) == 5);
+		assert(union_bc.hasRange([1, 3, 5, 7, 9]) == 5);
+		assert(intrsctn_ab.hasRange([1, 5, 9]) == 3);
+		assert(intrsctn_ac.hasRange([3, 7]) == 2);
+		assert(cmplmnt_ab.hasRange([3, 7]) == 2);
+		assert(cmplmnt_ac.hasRange([1, 5, 9]) == 3);
+		assert(diff_ab.hasRange([3, 7]) == 2);
+		assert(diff_ac.hasRange([1, 5, 9]) == 3);
+		assert(diff_bc.hasRange([1, 3, 5, 7, 9]) == 5);
 	}
 }
