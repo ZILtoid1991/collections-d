@@ -766,3 +766,13 @@ unittest {
 		assert(diff_bc.hasRange([1, 3, 5, 7, 9]) == 5);
 	}
 }
+/+@safe pure unittest {
+	alias IntMap = TreeMap!(int, int, false);
+	IntMap test;
+	test[5] = 5;
+	test[7] = 7;
+	test[3] = 3;
+	foreach(elem, key; test) {
+		assert(elem == key);
+	}
+}+/
