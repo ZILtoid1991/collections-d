@@ -10,101 +10,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 	private struct Node {
 		E               elem;   ///The element hold in this node.
 		Node*           next;   ///Points to the next element, null if endpoint.
-		/** 
-		 * returns the element at the given index.
-		 */
-		ref E opIndex(size_t index) @nogc @safe pure nothrow {
-			if(index) return next.opIndex(--index);
-			else return elem;
-		}
-		/**
-		 * Removes an element from the given position.
-		 * Returns the value held within that node.
-		 */
-		E remove(size_t index) @safe pure nothrow {
-			if(index) { 
-				return next.remove(--index);
-			} else {
-				Node* temp = next;
-				next = temp.next;
-				return temp.elem;
-			}
-		}
-		/**
-		 * Removes a node from the given position.
-		 * Returns the pointer.
-		 */
-		Node* removeNode(size_t index) @nogc @safe pure nothrow {
-			if(index) {
-				assert(next !is null);
-				return next.removeNode(--index);
-			} else {
-				if (next !is null) {
-					Node* temp = next;
-					next = temp.next;
-					temp.next = null;
-					return temp;
-				} else return null;
-			}
-		}
-		/**
-		 * Inserts a node at the given position.
-		 */
-		void insertNode(size_t index, Node* n) @nogc @safe pure nothrow {
-			if(index) {
-				assert(next !is null);
-				next.insertNode(--index, n);
-			} else {
-				n.next = next;
-				next = n;
-			}
-		}
-		/**
-		 * Returns the pointer of a node
-		 */
-		Node* getPtr(size_t index) @nogc @safe pure nothrow {
-			if(index) return next.getPtr(--index);
-			else return next;
-		}
-		static if (allowDuplicates) {
-			E opIndexAssign(E value, size_t index) @nogc @safe pure nothrow {
-				if(index) return (*next)[--index] = value;
-				else return elem = value;
-			}
-			/**
-			 * Inserts an element at the given position.
-			 */
-			E insertAt(E value, size_t index) @safe pure nothrow {
-				if(index) { 
-					return next.insertAt(value, --index);
-				} else {
-					next = new Node(value, next);
-					return value;
-				}
-			}
-		} else {
-			/**
-			 * Removes an element by match.
-			 * Returns the value if match found, or E.init if not found.
-			 */
-			E removeByElem(E value) @safe pure nothrow {
-				if(next !is null) {
-					if(binaryFun!equal(next.elem, value)){
-						Node* temp = next;
-						next = temp.next;
-						return temp.elem;
-					} else return next.removeByElem(value);
-				} else return E.init;
-			}
-			/**
-			 * Returns true if the set has the value.
-			 */
-			bool has(E value) @nogc @safe pure nothrow {
-				if (binaryFun!equal(elem, value)) return true;
-				else if (next !is null) return next.has(value);
-				else return false;
-			}
-		}
+		
 		string toString() const {
 			import std.conv : to;
 			string result = to!string(elem);
@@ -141,13 +47,6 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 			return "Empty";
 	}
 	/**
-	 * Returns the element at the given index.
-	 */
-	public ref E opIndex(size_t index) @nogc @safe pure nothrow {
-		assert(nOfElements > index, "Out of bounds error!");
-		return (*root)[index];
-	}
-	/**
 	 * Creates a slice from the list.
 	 */
 	public LinkedList!(E, allowDuplicates, equal) opSlice(size_t start, size_t end) @safe pure nothrow {
@@ -155,7 +54,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 		assert(nOfElements > start, "Out of bounds error!");
 		assert(nOfElements >= end, "Out of bounds error!");
 		LinkedList!(E, allowDuplicates, equal) result;
-		for( ; start < end ; start++) result.put((*root)[start]);
+		for( ; start < end ; start++) result.put(opIndex(start));
 		return result;
 	}
 	/**
@@ -163,36 +62,42 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 	 */
 	public E setAsFirst(size_t index) @nogc @safe pure nothrow {
 		assert(nOfElements > index, "Out of bounds error!");
-		if(!index) return root.elem;
-		Node* temp0 = getPtr(index), temp1 = getPtr(--index);
-		temp1.next = temp0.next;
-		temp0.next = root;
-		root = temp0;
-		return (*root)[index];
+		if(index) insertNode(0, removeNode(index));
+		return root.elem;
 	}
-	/**
+	/+/**
 	 * Returns the pointer of a given Node.
 	 */
 	private Node* getPtr(size_t index) @nogc @safe pure nothrow {
 		if(index) return root.getPtr(--index);
 		else return root;
-	}
+	}+/
 	private Node* removeNode(size_t index) @nogc @safe pure nothrow {
-		if(index) {
-			return root.removeNode(--index);
-		} else {
-			Node* temp = root;
-			root = root.next;
-			return temp;
+		Node** crnt = &root;
+		while(*crnt) {
+			if(!index) {
+				Node* backup = *crnt;
+				*crnt = (*crnt).next;
+				backup.next = null;
+				return backup;
+			}
+			crnt = &(*crnt).next;
+			index--;
 		}
+		return null;
 	}
 	private void insertNode(size_t index, Node* n) @nogc @safe pure nothrow {
-		if(index) {
-			root.insertNode(--index, n);
-		} else {
-			n.next = root;
-			root = n;
+		Node** crnt = &root;
+		while(*crnt) {
+			if(!index) {
+				n.next = *crnt;
+				*crnt = n;
+				return;
+			}
+			crnt = &(*crnt).next;
+			index--;
 		}
+		*crnt = n;
 	}
 	/**
 	 * Swaps two elements.
@@ -205,10 +110,18 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 			i0 = i1;
 			i1 = temp;
 		}
-		Node* t0 = removeNode(i0);
-		Node* t1 = removeNode(i1 - 1);
-		insertNode(i0, t1);
-		insertNode(i1, t0);
+		Node* n0 = removeNode(i0), n1 = removeNode(i1 - 1);
+		insertNode(i0, n1);
+		insertNode(i1, n0);
+		version (unittest) {
+			size_t count;
+			Node* crnt = root;
+			while (crnt) {
+				count++;
+				crnt = crnt.next;
+			}
+			assert(count == nOfElements, "Lenght mismatch error!");
+		}
 	}
 	/**
 	 * Removes the given index of the list.
@@ -218,34 +131,44 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 		assert(nOfElements > index, "Out of bounds error!");
 		nOfElements--;
 		end--;
-		if(index) {
-			return root.remove(--index);
-		} else {
-			E result = root.elem;
-			root = root.next;
-			return result;
-		}
+		return removeNode(index).elem;
 	}
 	static if(allowDuplicates) {
+		/**
+		 * Returns the element at the given index.
+		 * Will cause segfault if indexed out of bounds.
+		 */
+		ref E opIndex(size_t index) @nogc @safe pure nothrow {
+			assert(index < nOfElements, "Out of bounds error!");
+			Node* crnt = root;
+			while (index) {
+				crnt = crnt.next;
+				index--;
+			}
+			return crnt.elem;
+		}
 		/**
 		 * Assigns an element to the index.
 		 */	
 		public E opIndexAssign(E value, size_t index) @nogc @safe pure nothrow {
-			return (*root)[index] = value;
+			assert(index < nOfElements, "Out of bounds error!");
+			Node* crnt = root;
+			while (index) {
+				crnt = crnt.next;
+				index--;
+			}
+			return crnt.elem = value;
 		}
 		/**
 		 * Inserts an element at the given index.
 		 */
 		public E insertAt(E value, size_t index) @safe pure nothrow {
 			assert(index <= nOfElements, "Out of bounds error!");
+			insertNode(index, new Node(value, null));
 			nOfElements++;
 			end++;
-			if(index) {
-				return root.insertAt(value, --index);
-			} else {
-				root = new Node(value, root);
-				return value;
-			}
+			return value;
+			//return E.init;
 		}
 		/**
 		 * Inserts an element at the end of the list.
@@ -273,55 +196,75 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 			} else static assert(0, "Operator " ~ op ~ " not supported");
 			return this;
 		}
+		/**
+		 * Returns the element at the front.
+		 */
+		@property ref E frontRef() @nogc @safe nothrow pure {
+			return opIndex(begin);
+		}
+		/**
+		 * Returns the element at the back.
+		 */
+		@property ref E backRef() @nogc @safe nothrow pure {
+			return opIndex(end - 1);
+		}
 	} else {
+		/**
+		 * Returns the element at the given index.
+		 * Will cause segfault if indexed out of bounds.
+		 */
+		E opIndex(size_t index) @nogc @safe pure nothrow {
+			assert(index < nOfElements, "Out of bounds error!");
+			Node* crnt = root;
+			while (index) {
+				crnt = crnt.next;
+				index--;
+			}
+			return crnt.elem;
+		}
 		/**
 		 * Removes an index if the value is found.
 		 * Returns the original if found, or E.init if not.
 		 */
 		public E removeByElem(E value) @safe pure nothrow {
-			if(root !is null) {
-				if(binaryFun!equal(root.elem, value)) {
-					nOfElements--;
-					end--;
-					E result = root.elem;
-					root = root.next;
-					return result;
-				} else {
-					E result = root.removeByElem(value);
-					size_t count;
-					Node* crnt = root;
-					while(crnt !is null) {
-						count++;
-						crnt = crnt.next;
-					}
-					end -= nOfElements - count;
-					nOfElements = count;
+			Node** crnt = &root;
+			while(*crnt) {
+				if ((*crnt).elem == value) {
+					E result = (*crnt).elem;
+					*crnt = (*crnt).next;
 					return result;
 				}
-			} else return E.init;
+				crnt = &(*crnt).next;
+			}
+			return E.init;
 		}
 		/**
 		 * Inserts an element at the end of the list.
 		 */
 		public E put(E value) @safe pure nothrow {
-			if (root is null) {
-				root = new Node(value, null);
-			} else {
-				for (size_t i ; i < nOfElements ; i++) {
-					if (binaryFun!equal(getPtr(i).elem, value)) return E.init;
+			Node** crnt = &root;
+			while (*crnt) {
+				if(binaryFun!equal((*crnt).elem, value)) {
+					(*crnt).elem = value;
+					return value;
 				}
-				getPtr(nOfElements - 1).next = new Node(value, null);
+				crnt = &(*crnt).next;
 			}
 			nOfElements++;
 			end++;
+			*crnt = new Node(value, null);
 			return value;
 		}
 		/**
 		 * Returns true if the element is found within the set.
 		 */
 		public bool has(E value) @nogc @safe pure nothrow {
-			if (root !is null) return root.has(value);
-			else return false;
+			Node* crnt = root;
+			while (crnt) {
+				if (crnt.elem == value) return true;
+				crnt = crnt.next;
+			}
+			return false;
 		}
 		/**
 		 * Returns the amount of elements found in the set.
@@ -342,7 +285,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 			static if(op == "|" || op == "~") {//Union
 				LinkedList!(E, allowDuplicates, equal) result;
 				for(size_t i; i < nOfElements ; i++) 
-					result.put((*root)[i]);
+					result.put(opIndex(i));
 				foreach(e ; rhs)
 					result.put(e);
 				return result;
@@ -381,7 +324,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 		/**
 		 * Set operators.
 		 */
-		TreeMap!(K, E, nogcIndexing, less) opOpAssign(string op, R)(R range) {
+		LinkedList!(K, E, less) opOpAssign(string op, R)(R range) {
 			static if(op == "~=" || op == "|=") {//Append
 				foreach(val; range)
 					put(val);
@@ -396,31 +339,19 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 	 * Returns the element at the front.
 	 */
 	@property E front() @nogc @safe nothrow pure {
-		return (*root)[begin];
-	}
-	/**
-	 * Returns the element at the front.
-	 */
-	@property ref E frontRef() @nogc @safe nothrow pure {
-		return (*root)[begin];
+		return opIndex(begin);
 	}
 	/**
 	 * Returns the element at the back.
 	 */
 	@property E back() @nogc @safe nothrow pure {
-		return (*root)[end - 1];
-	}
-	/**
-	 * Returns the element at the back.
-	 */
-	@property ref E backRef() @nogc @safe nothrow pure {
-		return (*root)[end - 1];
+		return opIndex(end - 1);
 	}
 	/**
 	 * Returns the element at begin and increments the position by one.
 	 */
 	E moveFront() @nogc @safe nothrow pure {
-		E result = (*root)[begin];
+		E result = opIndex(begin);
 		popFront();
 		return result;
 	}
@@ -448,8 +379,10 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 	@property E[] arrayOf() @safe nothrow pure {
 		E[] result;
 		result.reserve(nOfElements);
-		for(int i ; i < nOfElements ; i++) {
-			result ~= (*root)[i];
+		Node* crnt = root;
+		while (crnt) {
+			result ~= crnt.elem;
+			crnt = crnt.next;
 		}
 		return result;
 	}
@@ -464,7 +397,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 	 */
 	E moveAt(size_t n) @nogc @safe nothrow pure {
 		begin = n;
-		return (*root)[begin];
+		return opIndex(n);
 	}
 }
 
@@ -476,6 +409,12 @@ unittest {
 	assert(lnl.arrayOf == [5, 8], lnl.toString);
 	lnl.put(11);
 	lnl.put(9);
+	assert(lnl.arrayOf == [5, 8, 11, 9], lnl.toString);
+	assert(lnl.length == 4);
+	lnl.insertAt(10, 1);
+	assert(lnl.length == 5);
+	assert(lnl.arrayOf == [5, 10, 8, 11, 9], lnl.toString);
+	lnl.remove(1);
 	assert(lnl.arrayOf == [5, 8, 11, 9], lnl.toString);
 	assert(lnl.length == 4);
 	lnl.swap(1,3);
@@ -493,10 +432,15 @@ unittest {
 unittest {
 	alias LinkedNumSet = LinkedList!(int, false);
 	LinkedNumSet sa = LinkedNumSet([-1,5,9,3]), sb = LinkedNumSet([-1,6,6,6,8,10]);
+	assert(sa.length == 4);
+	assert(sa.arrayOf == [-1,5,9,3], sa.toString);
+	assert(sb.length == 4);
+	assert(sb.arrayOf == [-1,6,8,10], sa.toString);
 	assert(sa.has(-1));
 	assert(sb.has(-1));
 	assert(!sb.has(0));
 	LinkedNumSet sc = sa | sb, sd = sa & sb, se = sa ^ sb;
+	assert(sc.length == 7, sc.toString());
 	assert(sc.has(-1), sc.toString());
 	assert(sc.has(3), sc.toString());
 	assert(sc.has(5), sc.toString());

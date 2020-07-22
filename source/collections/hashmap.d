@@ -8,7 +8,8 @@ public import collections.commons;
  * Implements a hashmap using collections.treemap as a backend.
  * See collections.treemap for more info on certain things.
  */
-public struct HashMap(K, E, bool nogcIndexing = true, alias hashFunc = defaultHash!K, alias less = "a < b") {
+public struct HashMap(K, E, alias hashFunc = defaultHash!K, alias less = "a < b") {
+	static enum bool nogcIndexing = hasFunctionAttributes!(hashFunc, "@nogc");
 	alias HashType = ReturnType!hashFunc;
 	private TreeMap!(HashType, E, nogcIndexing, less)     backend;
 
@@ -81,7 +82,26 @@ public struct HashMap(K, E, bool nogcIndexing = true, alias hashFunc = defaultHa
 	int opApplyReverse(scope int delegate(HashType, ref E) dg) {
 		return backend.opApplyReverse(dg);
 	}
-	
+	package static string makeFunc() {
+		string makeFundIndiv(string attr) {
+			return `int opApply(scope int delegate(ref E) ` ~ attr ~ ` dg) ` ~ attr ~ ` {
+		return backend.opApply(dg);
+	}
+	int opApply(scope int delegate(HashType, ref E) ` ~ attr ~ ` dg) ` ~ attr ~ ` {
+		return backend.opApply(dg);
+	}
+	int opApplyReverse(scope int delegate(ref E) ` ~ attr ~ ` dg) ` ~ attr ~ ` {
+		return backend.opApplyReverse(dg);
+	}
+	int opApplyReverse(scope int delegate(HashType, ref E) ` ~ attr ~ ` dg) ` ~ attr ~ ` {
+		return backend.opApplyReverse(dg);
+	}`;
+		}
+		string result;
+		foreach (attr; attrList) result ~= makeFundIndiv(attr);
+		return result;
+	}
+	mixin(makeFunc);
 	/**
 	 * Returns the number of currently held elements within the tree.
 	 */
@@ -97,7 +117,7 @@ public struct HashMap(K, E, bool nogcIndexing = true, alias hashFunc = defaultHa
 }
 
 unittest {
-	alias Dictionary = HashMap!(string, string, false);
+	alias Dictionary = HashMap!(string, string);
 	Dictionary d;
 	d["AAAAAAAAA"] = "AAAAAAAAA";
 	d["Hello World!"] = "Hello Vilag!";

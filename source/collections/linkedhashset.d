@@ -1,32 +1,33 @@
-module collections.hashset;
+module collections.linkedhashset;
 
-import collections.treemap;
+import collections.commons;
 import collections.linkedlist;
-import std.traits;
-//import std.digest.murmurhash;
-public import collections.commons;
+import std.traits : ReturnType, hasFunctionAttributes;
+
 /**
- * Implements a hashset, either using collections.treemap or collections.linkedlist as a set for backend.
- * Cannot be accessed directly, instead it can check whether an element is within it or not.
+ * Implements linked hashset with a linked set as a backend.
+ * Uses an equal method for comparison, meaning it can use complex keys.
+ * Has poorer access times compared to the hashset with a binary search tree as a backend, but less costly insertion.
+ * Elements cannot be accessed directly, instead it can check whether an element is within it or not.
  * Backend's foreach capability is exposed to iterate over hashcodes.
  */
-public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
+public struct LinkedHashSet(K, alias hashFunc = defaultHash128!(K), alias equal = "a == b") {
+    static enum bool nogcIndexing = hasFunctionAttributes!(hashFunc, "@nogc");
 	alias HashType = ReturnType!hashFunc;
-	alias Backend = TreeMap!(HashType, void, true, less);
-	private Backend			backend;
-	/**
-	 * Creates a HashSet from a compatible range.
+    private LinkedList!(HashType, false, equal) backend;
+    /**
+	 * Creates a LinkedHashSet from a compatible range.
 	 */
 	public this(R)(R range) @safe pure nothrow {
 		foreach(K key; range) put(key);
 	}
-	/**
+    /**
 	 * Puts an item into the hash set, then returns the generated hashcode.
 	 */
-	HashType put(K key) @safe pure nothrow {
+    HashType put(K key) @safe pure nothrow {
 		return backend.put(hashFunc(key));
 	}
-	/**
+    /**
 	 * Puts a hashcode into the hash set.
 	 */
 	private HashType put(HashType key) @safe pure nothrow {
@@ -48,7 +49,7 @@ public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
 		}
 		return result;
 	}
-	/**
+    /**
 	 * Removes an element by match.
 	 * Returns the hashcode if found, or uint.init if not.
 	 */
@@ -62,27 +63,27 @@ public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
 		return backend.removeByElem(key);
 	}
 	alias remove = removeByElem;
-	/**
+    /**
 	 * Set operators.
 	 * Enables math operations on sets, like unions and intersections.
 	 * Could work on ranges in general as long as they implement some basic functions, like iteration.
 	 */
-	HashSet!(K, hashFunc, less) opBinary(string op, R)(R rhs) {
+	LinkedHashSet!(K, hashFunc, equal) opBinary(string op, R)(R rhs) {
 		static if(op == "|" || op == "~") {//Union
-			HashSet!(K, hashFunc, less) result;
+			LinkedHashSet!(K, hashFunc, equal) result;
 			foreach(e ; backend)
 				result.put(e);
 			foreach(e ; rhs) 
 				result.put(e);
 			return result;
 		} else static if(op == "&" || op == "*") {//Intersection
-			HashSet!(K, hashFunc, less) result;
+			LinkedHashSet!(K, hashFunc, equal) result;
 			foreach(e ; rhs){
 				if(backend.has(e)) result.put(e);
 			}
 			return result;
 		} else static if(op == "-" || op == "/") {//Complement
-			HashSet!(K, hashFunc, less) result;
+			LinkedHashSet!(K, hashFunc, equal) result;
 			foreach(e ; backend)
 				result.put(e);
 			foreach(e ; rhs){
@@ -90,8 +91,8 @@ public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
 			}
 			return result;
 		} else static if(op == "^"){//Difference
-			HashSet!(K, hashFunc, less) result = this | rhs;
-			HashSet!(K, hashFunc, less) common = this & rhs;
+			LinkedHashSet!(K, hashFunc, equal) result = this | rhs;
+			LinkedHashSet!(K, hashFunc, equal) common = this & rhs;
 			foreach(e ; common){
 				result.removeByElem(e);
 			}
@@ -101,7 +102,7 @@ public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
 	/**
 	 * Set operators.
 	 */
-	HashSet!(K, hashFunc, less) opOpAssign(string op)(E value) {
+	LinkedHashSet!(K, hashFunc, equal) opOpAssign(string op)(E value) {
 		static if(op == "~=") {//Append
 			put(value);
 		} else static if(op == "-=" || op == "/=") {
@@ -112,7 +113,7 @@ public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
 	/**
 	 * Set operators.
 	 */
-	HashSet!(K, hashFunc, less) opOpAssign(string op, R)(R range) {
+	LinkedHashSet!(K, hashFunc, equal) opOpAssign(string op, R)(R range) {
 		static if(op == "~=" || op == "|=") {//Append
 			foreach(val; range)
 				put(val);
@@ -122,13 +123,40 @@ public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
 		} else static assert(0, "Operator " ~ op ~ "not supported");
 		return this;
 	}
-	private int opApply(scope int delegate(HashType) dg) {
-		return backend.opApply(dg);
+	/**
+	 * Returns the element at the front.
+	 */
+	@property HashType front() @nogc @safe nothrow pure {
+		return backend.front;
+	}
+    /**
+	 * Returns the element at begin and increments the position by one.
+	 */
+	HashType moveFront() @nogc @safe nothrow pure {
+		return backend.moveFront;
+	}
+	/**
+	 * Increments the front iteration position by one
+	 */
+	void popFront() @nogc @safe nothrow pure {
+		backend.popFront();
+	}
+    /**
+	 * Returns true when the end of the list have been reached.
+	 */
+	@property bool empty() @nogc @safe nothrow pure {
+		return backend.empty;
+	}
+    /**
+	 * Returns a copy of this struct.
+	 */
+	@property auto save() @nogc @safe nothrow pure {
+		return this;
 	}
 }
 
 unittest {
-	alias MatchFinder = HashSet!(string);
+	alias MatchFinder = LinkedHashSet!(string);
 	MatchFinder set = MatchFinder(["AAAAAA","BBBBBB","CCCCCC","DDDDDD"]);
 	assert(set.has("AAAAAA"));
 	assert(set.has("BBBBBB"));
@@ -138,7 +166,7 @@ unittest {
 }
 
 unittest {	///Test set operators
-	alias MatchFinder = HashSet!(string);
+	alias MatchFinder = LinkedHashSet!(string);
 	MatchFinder a = MatchFinder(["AAAA", "BBBB", "CCCC", "DDDD", "EEEE"]), b = MatchFinder(["DDDD", "EEEE", "FFFF", "GGGG"]);
 	MatchFinder c = MatchFinder(["BBBB", "CCCC", "EEEE", "GGGG"]), d = MatchFinder(["AAAA", "EEEE", "BBBB", "GGGG"]);
 	MatchFinder union_ab = a | b, union_ad = a | d;

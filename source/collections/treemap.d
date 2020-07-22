@@ -10,7 +10,7 @@ public import collections.commons;
  * `nogcIndexing` changes the behavior of `opIndex` if no match is found. If set to true, indexing returns the default
  * value if no match found, which will need some design consideration. If set to false, indexing throws an exception
  * if no match found.
- * Nodes should have the lesser elements on the left side. Behavior can be changed with `less`.
+ * Nodes should have the lesser elements on the left side, but this behavior can somewhat changed with alias less.
  */
 public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 	private struct Node {
@@ -98,6 +98,62 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 						return 1;
 				return 0;
 			}
+			///Generates an `opApply` and `opApplyReverse` pair for a TreeMap from potential  attributes 
+			package static string makeFuncTMNode() {
+				string makeFunc(string attr) {
+					return "
+						int opApply(scope int delegate(ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+							if(left !is null)
+								if(left.opApply(dg))
+									return 1;
+							if(dg(elem))
+								return 1;
+							if(right !is null)
+								if(right.opApply(dg))
+									return 1;
+							return 0;
+						}
+						int opApply(scope int delegate(K, ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+							if(left !is null)
+								if(left.opApply(dg))
+									return 1;
+							if(dg(key, elem))
+								return 1;
+							if(right !is null)
+								if(right.opApply(dg))
+									return 1;
+							return 0;
+						}
+						int opApplyReverse(scope int delegate(ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+							if(right !is null)
+								if(right.opApply(dg))
+									return 1;
+							if(dg(elem))
+								return 1;
+							if(left !is null)
+								if(left.opApply(dg))
+									return 1;
+							return 0;
+						}
+						int opApplyReverse(scope int delegate(K, ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+							if(right !is null)
+								if(right.opApply(dg))
+									return 1;
+							if(dg(key, elem))
+								return 1;
+							if(left !is null)
+								if(left.opApply(dg))
+									return 1;
+							return 0;
+						}";
+				}
+				string result;
+				foreach (attr; attrList) {
+					result ~= makeFunc(attr);
+				}
+				return result;
+			}
+			mixin(makeFuncTMNode);
 		} else {
 			/**
 			 * Implements a simple left-to-right tree traversal.
@@ -127,6 +183,39 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 						return 1;
 				return 0;
 			}
+			///Generates an `opApply` and `opApplyReverse` pair for a TreeSet with the supplied attributes
+			package static string makeFuncTSNode() {
+				string makeFunc(string attr){
+					return "int opApply(scope int delegate(K) " ~ attr ~ " dg) " ~ attr ~ " {
+						if(left !is null)
+							if(left.opApply(dg))
+								return 1;
+						if(dg(key))
+							return 1;
+						if(right !is null)
+							if(right.opApply(dg))
+								return 1;
+						return 0;
+					}
+					int opApplyReverse(scope int delegate(K) " ~ attr ~ " dg) " ~ attr ~ " {
+						if(right !is null)
+							if(right.opApply(dg))
+								return 1;
+						if(dg(key))
+							return 1;
+						if(left !is null)
+							if(left.opApply(dg))
+								return 1;
+						return 0;
+					}";
+				}
+				string result;
+				foreach (attr; attrList) {
+					result ~= makeFunc(attr);
+				}
+				return result;
+			}
+			mixin(makeFuncTSNode);
 		}
 	}
 	private size_t		nOfElements;///Current number of elements in this collection
@@ -587,6 +676,33 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			if(root !is null) return root.opApplyReverse(dg);
 			else return 0;
 		}
+		///Generates an `opApply` and `opApplyReverse` pair for a TreeMap with the supplied attributes
+		package static string makeFuncTM() {
+			string makeFunc(string attr) {
+				return "int opApply(scope int delegate(ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+					if(root !is null) return root.opApply(dg);
+					else return 0;
+				}
+				int opApply(scope int delegate(K, ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+					if(root !is null) return root.opApply(dg);
+					else return 0;
+				}
+				int opApplyReverse(scope int delegate(ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+					if(root !is null) return root.opApplyReverse(dg);
+					else return 0;
+				}
+				int opApplyReverse(scope int delegate(K, ref E) " ~ attr ~ " dg) " ~ attr ~ " {
+					if(root !is null) return root.opApplyReverse(dg);
+					else return 0;
+				}";
+			}
+			string result;
+			foreach (attr; attrList) {
+				result ~= makeFunc(attr);
+			}
+			return result;
+		}
+		mixin(makeFuncTM);
 	} else {
 		/**
 		 * Implements a simple left-to-right tree traversal by depth.
@@ -615,6 +731,25 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			root.opApply(&putToResult);
 			return result;
 		}
+		///Generates an `opApply` and `opApplyReverse` pair for a TreeMap with the supplied attributes
+		package static string makeFuncTS() {
+			string makeFunc(string attr) {
+				return "int opApply(scope int delegate(K) " ~ attr ~ " dg) " ~ attr ~ " {
+					if(root !is null) return root.opApply(dg);
+					else return 0;
+				}
+				int opApplyReverse(scope int delegate(K) " ~ attr ~ " dg) " ~ attr ~ " {
+					if(root !is null) return root.opApplyReverse(dg);
+					else return 0;
+				}";
+			}
+			string result;
+			foreach (attr; attrList) {
+				result ~= makeFunc(attr);
+			}
+			return result;
+		}
+		mixin(makeFuncTS);
 	}
 	/**
 	 * Tree rotation for rebalancing.
@@ -659,6 +794,26 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		return nOfElements;
 	}
 	/**
+	 * Returns the key of the n-th element.
+	 * NOT WORKING!
+	 */
+	/+public K keyOf(size_t n) {
+		static if(E.stringof != "void"){
+			foreach (key, elem; root) {
+				if (n == 0) {
+					return key;
+				} else n--;
+			}
+		} else {
+			foreach (key; root) {
+				if (n == 0) {
+					return key;
+				} else n--;
+			}
+		}
+		return K.init;
+	}+/
+	/**
 	 * Returns the string representation of the tree.
 	 */
 	public string toString() const {
@@ -686,10 +841,10 @@ unittest {
 		}
 		for(int i ; i < 16 ; i++)
 			test1[uniform(0, 65536)] = i;
-		writeln(test1.toString);
+		//writeln(test1.toString);
 		for(int i ; i < 32 ; i++)
 			test2[uniform(0, 65536)] = i;
-		writeln(test2.toString);
+		//writeln(test2.toString);
 		for(int i ; i < 64 ; i++)
 			test3[i] = i;
 		for(int i ; i < 64 ; i++)
@@ -766,7 +921,7 @@ unittest {
 		assert(diff_bc.hasRange([1, 3, 5, 7, 9]) == 5);
 	}
 }
-/+@safe pure unittest {
+@safe pure unittest {
 	alias IntMap = TreeMap!(int, int, false);
 	IntMap test;
 	test[5] = 5;
@@ -775,4 +930,4 @@ unittest {
 	foreach(elem, key; test) {
 		assert(elem == key);
 	}
-}+/
+}

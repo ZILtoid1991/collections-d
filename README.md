@@ -33,18 +33,34 @@ treeset.
 
 ## HashMap
 
-Implements a hashmap using TreeMap as a backend, and MurMurHash3/32 as the hashing algorithm. Future versions will allow using 
-LinkedList as a backend if needed.
+Implements a hashmap using TreeMap as a backend, and MurMurHash3/32 as the default hashing algorithm. Only can be used with hashing 
+algorithms that can be compared similarly to an integer.
 
 ## HashSet
 
 Implements a hashset, similarly to hashmap. Operation is done through set operators only, as it only stores the keys of the hashed
-elements.
+elements. Only can be used with hashing algorithms that can be compared similarly to an integer.
+
+## LinkedMap
+
+Very similar to D's own associative array.
+
+Differentiates keys by checking whether they're equal or not. Has worse access times than TreeMap, but doesn't need optimization.
+
+## LinkedHashMap
+
+Implements a hashmap, using LinkedMap as a backend, and MurMurHash3/128 as the default hashing algorithm. Can be used with more complex
+keys.
 
 ## LinkedList
 
 A list with pretty low insertion cost. Ideal for applications where frequent reordering is needed. Can work as a set too by setting
 `allowDuplicates` false.
+
+## LinkedHashSet
+
+Implements a hashset, using LinkedList in set mode as a backend, and MurMurHash3/128 as the default hashing algorithm. Can be used with 
+more complex keys. Operation is done through set operators only, as it only stores the keys of the hashed elements.
 
 # Code example
 
@@ -93,6 +109,6 @@ The library has some standardized set operators, repurposing preexisting operato
 
 # Known issues
 
-* TreeMap/TreeSet (and in turn, HashMap) foreach is done through the `opApply` operator, which provides a delegate to call for each 
-item. At the moment, it cannot be used within safe, pure, or nothrow code. For the while, it'll be fixed with a template mixin, that'll
-generate functions with the appropriate templates.
+* Foreach capabilities of many containers are provided through `opApply` operators, which have a complicated
+relationship with attributes. A workaround was provided through string mixins and CTFE trickery, but it looks
+janky. I'll try to talk with the D community about possible solutions.
