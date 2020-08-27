@@ -229,7 +229,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 		public E removeByElem(E value) @safe pure nothrow {
 			Node** crnt = &root;
 			while(*crnt) {
-				if ((*crnt).elem == value) {
+				if (binaryFun!equal((*crnt).elem, value)) {
 					E result = (*crnt).elem;
 					*crnt = (*crnt).next;
 					return result;
@@ -261,7 +261,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 		public bool has(E value) @nogc @safe pure nothrow {
 			Node* crnt = root;
 			while (crnt) {
-				if (crnt.elem == value) return true;
+				if (binaryFun!equal(crnt.elem, value)) return true;
 				crnt = crnt.next;
 			}
 			return false;
