@@ -267,6 +267,19 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 			return false;
 		}
 		/**
+		 * Returns the index where the element can be found, or throws an ElementNotFoundException if not found.
+		 */
+		public size_t which(E value) @safe pure {
+			Node* crnt = root;
+			size_t result;
+			while (crnt) {
+				if (binaryFun!equal(crnt.elem, value)) return result;
+				crnt = crnt.next;
+				result++;
+			}
+			throw new ElementNotFoundException("Element not found!");
+		}
+		/**
 		 * Returns the amount of elements found in the set.
 		 */
 		public size_t hasRange(R)(R range) @nogc @safe pure nothrow {
@@ -430,6 +443,7 @@ unittest {
 }
 
 unittest {
+	import std.exception;
 	alias LinkedNumSet = LinkedList!(int, false);
 	LinkedNumSet sa = LinkedNumSet([-1,5,9,3]), sb = LinkedNumSet([-1,6,6,6,8,10]);
 	assert(sa.length == 4);
@@ -437,6 +451,8 @@ unittest {
 	assert(sb.length == 4);
 	assert(sb.arrayOf == [-1,6,8,10], sa.toString);
 	assert(sa.has(-1));
+	assert(sa.which(-1) == 0);
+	assertThrown!ElementNotFoundException(sa.which(-2));
 	assert(sb.has(-1));
 	assert(!sb.has(0));
 	LinkedNumSet sc = sa | sb, sd = sa & sb, se = sa ^ sb;
