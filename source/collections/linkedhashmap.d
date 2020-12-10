@@ -8,31 +8,117 @@ import collections.linkedmap;
 
 /**
  * Implements a linked hashmap.
- * 
+ * If retainKeys enabled, the map will retain the original keys and hash collisions can be resorted, but can be disabled
+ * by setting keyEqual to null.
+ * It uses a LinkedMap as its backend, and does retain it's ordered map qualities, and the `ovrwrtBhvr` template parameter
+ * is exposed.
  */
-public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equal = "a == b") {
+public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equal = "a == b", bool retainKeys = false,
+		alias keyEqual = "a == b", bool ovrwrtBhvr = true) {
+	///true if nogc Indexing is enabled.
 	static enum bool nogcIndexing = hasFunctionAttributes!(hashFunc, "@nogc");
 	alias HashType = ReturnType!hashFunc;
-	private LinkedMap!(HashType, E, nogcIndexing, equal) backend;
-	static if (nogcIndexing) {
+	static if (retainKeys) {
+		///stores a key-element pair
+		struct Entry {
+			K		key;	///Key of the entry
+			E		elem;	///Element of the entry
+			static if (keyEqual != "")
+				Entry*	next;	///Stores the next entry in case of keyEqual is set
+		}
+		private LinkedMap!(HashType, Entry, nogcIndexing, equal, ovrwrtBhvr) backend;
+	} else {
+		private LinkedMap!(HashType, E, nogcIndexing, equal, ovrwrtBhvr) backend;
+	}
+	static if (nogcIndexing && !retainKeys) {
 		/**
 		 * Accesses an element within the map.
 		 */
+		E opIndex(HashType key) @nogc @safe pure nothrow {
+			return backend[key];
+		}
+		///Ditto
 		E opIndex(K key) @nogc @safe pure nothrow {
 			return backend[hashFunc(key)];
 		}
 		/**
 		 * Returns the pointer of a given element.
 		 */
+		E* ptrOf(HashType key) @nogc @safe pure nothrow {
+			return backend.ptrOf(key);
+		}
+		///Ditto
 		E* ptrOf(K key) @nogc @safe pure nothrow {
 			return backend.ptrOf(hashFunc(key));
+		}
+	} else static if (!nogcIndexing && !retainKeys) {
+		/**
+		 * Accesses an element within the map.
+		 */
+		ref E opIndex(K key) @safe pure {
+			return backend[hashFunc(key)];
+		}
+		///Ditto
+		ref E opIndex(HashType key) @safe pure {
+			return backend[key];
+		}
+	} else static if (nogcIndexing && retainKeys) {
+		/**
+		 * Accesses an element within the map.
+		 */
+		E opIndex(K key) @nogc @safe pure nothrow {
+			static if (keyEqual == "") {
+				return backend[hashFunc(key)].elem;
+			} else {
+				Entry e = backend[hashFunc(key)];
+				if (binaryFun!keyEqual(key, e.key)) {
+					return e.elem;
+				} else {
+					Entry* crnt = e.next;
+					while (crnt) {
+						if (binaryFun!keyEqual(key, crnt.key)) 
+							return crnt.elem;
+						else
+							crnt = crnt.next;
+					}
+				}
+				return E.init;
+			}
+		}
+		/**
+		 * Returns the pointer of a given element
+		 */
+		E* ptrOf(K key) @nogc @safe pure nothrow {
+			static if (keyEqual == "") {
+				return &(backend.ptrOf(hashFunc(key)).elem);
+			} else {
+				Entry* crnt = backend.ptrOf(hashFunc(key));
+				while (crnt) {
+					if (binaryFun!keyEqual(key, crnt.key)) 
+						return crnt.elem;
+					else
+						crnt = crnt.next;
+				}
+				return null;
+			}
 		}
 	} else {
 		/**
 		 * Accesses an element within the map.
 		 */
 		ref E opIndex(K key) @safe pure {
-			return backend[hashFunc(key)];
+			static if (keyEqual == "") {
+				return backend[hashFunc(key)].elem;
+			} else {
+				Entry* crnt = &(backend[hashFunc(key)]);
+				while (crnt) {
+					if (binaryFun!keyEqual(key, crnt.key)) 
+						return crnt.elem;
+					else
+						crnt = crnt.next;
+				}
+				throw new ElementNotFoundException("Key not found!");
+			}
 		}
 	}
 	/**

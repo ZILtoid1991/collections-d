@@ -8,9 +8,14 @@ public import collections.commons;
  * Similar to TreeMap, but instead relies on the equals function, which can mean it can compare keys much easier,
  * meaning much bigger data can be compared easily without hashing. Also it doesn't need to rebalance a tree, which
  * lowers insertion complexity at the cost of higher theoretical access times (n).
+ * This linked map has the behavior of putting new elements at the back, resulting in an ordered map similar to
+ * what PHP and YAML also has.
+ * `ovrwrtBhvr` changes the overwrite behavior when keymatches are found. If true, then if a key is already existing,
+ * then it'll overwrite it at the given position. If false, then the matching key will be first deleted, then the
+ * new one will be always put in the end.
  */
 
-public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b") {
+public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", bool ovrwrtBhvr = true) {
 	private struct Node {
 		K		key;	///Identifier key
 		E		elem;	///Element stored within the node
@@ -117,7 +122,14 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b") 
 		}+/
 		Node** crnt = &root;
 		while (*crnt) {
-			if ((*crnt).key == key) return (*crnt).elem = value;
+			static if (ovrwrtBhvr) {
+				if ((*crnt).key == key) return (*crnt).elem = value;
+			} else {
+				if ((*crnt).key == key) {
+					*crnt = &(*crnt).next;
+					length--;
+				}
+			}
 			//prev = crnt;
 			crnt = &(*crnt).next;
 		}
