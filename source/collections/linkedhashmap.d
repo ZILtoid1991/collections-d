@@ -10,8 +10,7 @@ import collections.linkedmap;
  * Implements a linked hashmap.
  * If retainKeys enabled, the map will retain the original keys and hash collisions can be resorted, but can be disabled
  * by setting keyEqual to null.
- * It uses a LinkedMap as its backend, and does retain it's ordered map qualities, and the `ovrwrtBhvr` template parameter
- * is exposed.
+ * It is a modified linked map, and the `ovrwrtBhvr` still works as with the linked map.
  */
 public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equal = "a == b", bool retainKeys = false,
 		alias keyEqual = "a == b", bool ovrwrtBhvr = true) {
@@ -19,167 +18,448 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 	static enum bool nogcIndexing = hasFunctionAttributes!(hashFunc, "@nogc");
 	alias HashType = ReturnType!hashFunc;
 	static if (retainKeys) {
-		///stores a key-element pair
-		struct Entry {
-			K		key;	///Key of the entry
-			E		elem;	///Element of the entry
-			static if (keyEqual != "")
-				Entry*	next;	///Stores the next entry in case of keyEqual is set
+		private struct Node {
+			HashType	hashCode;	///Identifier hash
+			K			key;		///The key for this node
+			E			elem;		///Element stored within the node
+			Node*		next;		///Next node, null if none exists
+			Node*		prev;		///Previous node, null if none exists
 		}
-		private LinkedMap!(HashType, Entry, nogcIndexing, equal, ovrwrtBhvr) backend;
 	} else {
-		private LinkedMap!(HashType, E, nogcIndexing, equal, ovrwrtBhvr) backend;
+		private struct Node {
+			HashType	hashCode;	///Identifier hash
+			E			elem;		///Element stored within the node
+			Node*		next;		///Next node, null if none exists
+			Node*		prev;		///Previous node, null if none exists
+		}
 	}
-	static if (nogcIndexing && !retainKeys) {
+	protected Node*		root;	///Root element.
+	protected Node*		last;	///Last element.
+	protected size_t	_length;///N. of currently stored elements
+	static if (retainKeys) {
 		/**
-		 * Accesses an element within the map.
+		 * opApply override for foreach
 		 */
-		E opIndex(HashType key) @nogc @safe pure nothrow {
-			return backend[key];
-		}
-		///Ditto
-		E opIndex(K key) @nogc @safe pure nothrow {
-			return backend[hashFunc(key)];
+		int opApply(scope int delegate(ref E) dg) {
+			Node* crnt = root;
+			while (crnt) {
+				if (dg(crnt.elem)) return 1;
+				crnt = crnt.next;
+			}
+			return 0;
 		}
 		/**
-		 * Returns the pointer of a given element.
+		 * opApply override for foreach
 		 */
-		E* ptrOf(HashType key) @nogc @safe pure nothrow {
-			return backend.ptrOf(key);
+		int opApply(scope int delegate(K, ref E) dg) {
+			Node* crnt = root;
+			while (crnt) {
+				if (dg(crnt.key, crnt.elem)) return 1;
+				crnt = crnt.next;
+			}
+			return 0;
 		}
-		///Ditto
-		E* ptrOf(K key) @nogc @safe pure nothrow {
-			return backend.ptrOf(hashFunc(key));
-		}
-	} else static if (!nogcIndexing && !retainKeys) {
 		/**
-		 * Accesses an element within the map.
+		 * opApplyReverse override for foreach_reverse
 		 */
-		ref E opIndex(K key) @safe pure {
-			return backend[hashFunc(key)];
+		int opApplyReverse(scope int delegate(ref E) dg) {
+			Node* crnt = last;
+			while (crnt) {
+				if (dg(crnt.elem)) return 1;
+				crnt = crnt.prev;
+			}
+			return 0;
 		}
-		///Ditto
-		ref E opIndex(HashType key) @safe pure {
-			return backend[key];
-		}
-	} else static if (nogcIndexing && retainKeys) {
 		/**
-		 * Accesses an element within the map.
+		 * opApplyReverse override for foreach_reverse
 		 */
-		E opIndex(K key) @nogc @safe pure nothrow {
-			static if (keyEqual == "") {
-				return backend[hashFunc(key)].elem;
-			} else {
-				Entry e = backend[hashFunc(key)];
-				if (binaryFun!keyEqual(key, e.key)) {
-					return e.elem;
-				} else {
-					Entry* crnt = e.next;
+		int opApplyReverse(scope int delegate(K, ref E) dg) {
+			Node* crnt = last;
+			while (crnt) {
+				if (dg(crnt.key, crnt.elem)) return 1;
+				crnt = crnt.prev;
+			}
+			return 0;
+		}
+		package static string makeFunc() {
+			string makeFuncIndiv(string args) {
+				return `
+				int opApply(scope int delegate(ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = root;
 					while (crnt) {
-						if (binaryFun!keyEqual(key, crnt.key)) 
-							return crnt.elem;
-						else
-							crnt = crnt.next;
+						if (dg(crnt.elem)) return 1;
+						crnt = crnt.next;
 					}
+					return 0;
+				}
+				int opApply(scope int delegate(K, ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = root;
+					while (crnt) {
+						if (dg(crnt.key, crnt.elem)) return 1;
+						crnt = crnt.next;
+					}
+					return 0;
+				}
+				int opApplyReverse(scope int delegate(ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = last;
+					while (crnt) {
+						if (dg(crnt.elem)) return 1;
+						crnt = crnt.prev;
+					}
+					return 0;
+				}
+				int opApplyReverse(scope int delegate(K, ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = last;
+					while (crnt) {
+						if (dg(crnt.key, crnt.elem)) return 1;
+						crnt = crnt.prev;
+					}
+					return 0;
+				}`;
+			}
+			string result;
+			foreach (attr; attrList) {
+				result ~= makeFuncIndiv(attr);
+			}
+			return result;
+		}
+		mixin(makeFunc);
+		/**
+		 * Assigns a value to the given key.
+		 */
+		auto opIndexAssign(E value, K key) @safe pure nothrow {
+			const HashType hashCode = hashFunc(key);
+			Node** crnt = &root;
+			while (*crnt) {
+				static if (ovrwrtBhvr) {
+					static if (keyEqual !is null) {
+						if (binaryFun!equal((*crnt).hashCode, hashCode) && binaryFun!keyEqual((*crnt).key, key)) {
+							return (*crnt).elem = value;
+						}
+					} else {
+						if (binaryFun!equal((*crnt).hashCode, hashCode)) {
+							(*crnt).key = key;
+							return (*crnt).elem = value;
+						}
+					}
+				} else {
+					if (binaryFun!equal((*crnt).hashCode, hashCode)) {
+						if ((*crnt).prev) (*crnt).prev.next = (*crnt).next;
+						*crnt = &(*crnt).next;
+						length--;
+					}
+				}
+				crnt = &(*crnt).next;
+			}
+			//prev.next = new Node(key, value, null);
+			*crnt = new Node(key, value, null);
+			last = *crnt;
+			_length++;
+			return value;
+		}
+		static if (nogcIndexing) {
+			
+			/**
+			 * Returns true if key is found.
+			 */
+			bool has(K key) @nogc @safe pure nothrow {
+				const HashType hash = hashFunc(key);
+				Node* crnt = root;
+				while (crnt) {
+					static if (keyEqual !is null) { 
+						if (binaryFun!equal(crnt.hashCode, hash) && binaryFun!keyEqual(crnt.key , key)) {
+							return true;
+						}
+					} else {
+						if (binaryFun!equal(crnt.hashCode, hash)) {
+							return true;
+						}
+					}
+					crnt = crnt.next;
+				}
+				return false;
+			}
+		} else {
+			/**
+			 * Returns true if key is found.
+			 */
+			bool has(K key) @safe pure nothrow {
+				const HashType hash = hashFunc(key);
+				Node* crnt = root;
+				while (crnt) {
+					static if (keyEqual !is null) { 
+						if (binaryFun!equal(crnt.hashCode, hash) && binaryFun!keyEqual(crnt.key , key)) {
+							return true;
+						}
+					} else {
+						if (binaryFun!equal(crnt.hashCode, hash)) {
+							return true;
+						}
+					}
+					crnt = crnt.next;
+				}
+				return false;
+			}
+		}
+	} else {
+		/**
+		 * opApply override for foreach
+		 */
+		int opApply(scope int delegate(ref E) dg) {
+			Node* crnt = root;
+			while (crnt) {
+				if (dg(crnt.elem)) return 1;
+				crnt = crnt.next;
+			}
+			return 0;
+		}
+		/**
+		 * opApply override for foreach
+		 */
+		int opApply(scope int delegate(HashType, ref E) dg) {
+			Node* crnt = root;
+			while (crnt) {
+				if (dg(crnt.key, crnt.elem)) return 1;
+				crnt = crnt.next;
+			}
+			return 0;
+		}
+		/**
+		 * opApplyReverse override for foreach_reverse
+		 */
+		int opApplyReverse(scope int delegate(ref E) dg) {
+			Node* crnt = last;
+			while (crnt) {
+				if (dg(crnt.elem)) return 1;
+				crnt = crnt.prev;
+			}
+			return 0;
+		}
+		/**
+		 * opApplyReverse override for foreach_reverse
+		 */
+		int opApplyReverse(scope int delegate(HashType, ref E) dg) {
+			Node* crnt = last;
+			while (crnt) {
+				if (dg(crnt.key, crnt.elem)) return 1;
+				crnt = crnt.prev;
+			}
+			return 0;
+		}
+		package static string makeFunc() {
+			string makeFuncIndiv(string args) {
+				return `
+				int opApply(scope int delegate(ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = root;
+					while (crnt) {
+						if (dg(crnt.elem)) return 1;
+						crnt = crnt.next;
+					}
+					return 0;
+				}
+				int opApply(scope int delegate(HashType, ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = root;
+					while (crnt) {
+						if (dg(crnt.key, crnt.elem)) return 1;
+						crnt = crnt.next;
+					}
+					return 0;
+				}
+				int opApplyReverse(scope int delegate(ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = last;
+					while (crnt) {
+						if (dg(crnt.elem)) return 1;
+						crnt = crnt.prev;
+					}
+					return 0;
+				}
+				int opApplyReverse(scope int delegate(HashType, ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+					Node* crnt = last;
+					while (crnt) {
+						if (dg(crnt.key, crnt.elem)) return 1;
+						crnt = crnt.prev;
+					}
+					return 0;
+				}`;
+			}
+			string result;
+			foreach (attr; attrList) {
+				result ~= makeFuncIndiv(attr);
+			}
+			return result;
+		}
+		mixin(makeFunc);
+		/**
+		 * Assigns a value to the given key.
+		 */
+		auto opIndexAssign(E value, K key) @safe pure nothrow {
+			const HashType hashCode = hashFunc(key);
+			Node** crnt = &root;
+			while (*crnt) {
+				static if (ovrwrtBhvr) {
+					if (binaryFun!equal((*crnt).hashCode, hashCode)) return (*crnt).elem = value;
+				} else {
+					if (binaryFun!equal((*crnt).hashCode, hashCode)) {
+						if (&(*crnt).prev) (*crnt).prev.next = (*crnt).next;
+						*crnt = &(*crnt).next;
+						length--;
+					}
+				}
+				crnt = &(*crnt).next;
+			}
+			//prev.next = new Node(key, value, null);
+			*crnt = new Node(key, value, null);
+			last = *crnt;
+			_length++;
+			return value;
+		}
+		static if (nogcIndexing) {
+			/**
+			 * Returns true if key is found.
+			 */
+			bool has(K key) @nogc @safe pure nothrow {
+				return has(hashFunc(key));
+			}
+		} else {
+			/**
+			 * Returns true if key is found.
+			 */
+			bool has(K key) @safe pure {
+				return has(hashFunc(key));
+			}
+		}
+	}
+	static if (!retainKeys || keyEqual !is null) {
+		static if (nogcIndexing) {
+			/**
+			 * Returns the element with the given key, or E.init if key is not found.
+			 */
+			E opIndex(K key) @nogc @safe pure nothrow {
+				const HashType hashCode = hashFunc(key);
+				Node* crnt = root;
+				while (crnt) {
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					crnt = crnt.next;
 				}
 				return E.init;
 			}
-		}
-		/**
-		 * Returns the pointer of a given element
-		 */
-		E* ptrOf(K key) @nogc @safe pure nothrow {
-			static if (keyEqual == "") {
-				return &(backend.ptrOf(hashFunc(key)).elem);
-			} else {
-				Entry* crnt = backend.ptrOf(hashFunc(key));
+			/**
+			 * Returns the element with the given key, or E.init if key is not found.
+			 */
+			E opIndex(HashType hashCode) @nogc @safe pure nothrow {
+				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!keyEqual(key, crnt.key)) 
-						return crnt.elem;
-					else
-						crnt = crnt.next;
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					crnt = crnt.next;
+				}
+				return E.init;
+			}
+			/**
+			 * Returns the pointer to the element with the given key, of null if key is not found.
+			 */
+			E* getPtr(K key) @nogc @safe pure nothrow {
+				const HashType hashCode = hashFunc(key);
+				Node* crnt = root;
+				while (crnt) {
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return &(crnt.key);
+					crnt = crnt.next;
 				}
 				return null;
 			}
+			/**
+			 * Returns the pointer to the element with the given key, of null if key is not found.
+			 */
+			E* getPtr(HashType hashCode) @nogc @safe pure nothrow {
+				Node* crnt = root;
+				while (crnt) {
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return &(crnt.key);
+					crnt = crnt.next;
+				}
+				return null;
+			}
+		} else {
+			/**
+			 * Returns the element with the given key, or E.init if key is not found.
+			 */
+			ref E opIndex(K key) @nogc @safe pure nothrow {
+				const HashType hashCode = hashFunc(key);
+				Node* crnt = root;
+				while (crnt) {
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					crnt = crnt.next;
+				}
+				throw new ElementNotFoundException("Key not found!");
+			}
+			/**
+			 * Returns the element with the given key, or E.init if key is not found.
+			 */
+			ref E opIndex(HashType hashCode) @nogc @safe pure nothrow {
+				Node* crnt = root;
+				while (crnt) {
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					crnt = crnt.next;
+				}
+				throw new ElementNotFoundException("Key not found!");
+			}
 		}
 	} else {
-		/**
-		 * Accesses an element within the map.
-		 */
-		ref E opIndex(K key) @safe pure {
-			static if (keyEqual == "") {
-				return backend[hashFunc(key)].elem;
-			} else {
-				Entry* crnt = &(backend[hashFunc(key)]);
+		static if (nogcIndexing) {
+			/**
+			 * Returns the element with the given key, or E.init if key is not found.
+			 */
+			E opIndex(K key) @nogc @safe pure nothrow {
+				const HashType hashCode = hashFunc(key);
+				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!keyEqual(key, crnt.key)) 
-						return crnt.elem;
-					else
-						crnt = crnt.next;
+					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return crnt.key;
+					crnt = crnt.next;
+				}
+				return E.init;
+			}
+			/**
+			 * Returns the pointer to the element with the given key, of null if key is not found.
+			 */
+			E* getPtr(K key) @nogc @safe pure nothrow {
+				const HashType hashCode = hashFunc(key);
+				Node* crnt = root;
+				while (crnt) {
+					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return &(crnt.key);
+					crnt = crnt.next;
+				}
+				return null;
+			}
+		} else {
+			/**
+			 * Returns the element with the given key, or E.init if key is not found.
+			 */
+			ref E opIndex(K key) @nogc @safe pure nothrow {
+				const HashType hashCode = hashFunc(key);
+				Node* crnt = root;
+				while (crnt) {
+					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return crnt.key;
+					crnt = crnt.next;
 				}
 				throw new ElementNotFoundException("Key not found!");
 			}
 		}
 	}
 	/**
-	 * Assigns an element to a given key.
+	 * Returns true if key is found.
 	 */
-	E opIndexAssign(E value, K key) @safe pure nothrow {
-		return backend[hashFunc(key)] = value;
-	}
-	static if(nogcIndexing) {
-		/**
-		 * Returns true if key is found.
-		 */
-		bool has(K key) @nogc @safe pure nothrow {
-			return backend.has(hashFunc(key));
+	bool has(HashType hashCode) @nogc @safe pure nothrow {
+		Node* crnt = root;
+		while (crnt) {
+			if (binaryFun!equal(crnt.key, key)) return true;
+			crnt = crnt.next;
 		}
-	} else {
-		/**
-		 * Returns true if key is found.
-		 */
-		bool has(K key) @safe pure nothrow {
-			return backend.has(hashFunc(key));
-		}
+		return false;
 	}
 	/**
-	 * Removes a value with the given key and returns it.
-	 */
-	E remove(K key) @safe pure nothrow {
-		return backend.remove(hashFunc(key));
-	}
-	/**
-	 * Returns the number of elements in the LinkedHashMap.
+	 * Returns the number of elements in the LinkedMap.
 	 */
 	@property size_t length() @nogc @safe pure nothrow const {
-		return backend.length;
+		return _length;
 	}
-	/**
-	 * opApply override for foreach.
-	 */
-	int opApply(scope int delegate(ref E) dg) {
-		return backend.opApply(dg);
-	}
-	/**
-	 * opApply override for foreach.
-	 */
-	int opApply(scope int delegate(HashType, ref E) dg) {
-		return backend.opApply(dg);
-	}
-	package static string makeFunc() {
-		string makeFundIndiv(string attr) {
-			return `int opApply(scope int delegate(ref E) ` ~ attr ~ ` dg) ` ~ attr ~ ` {
-		return backend.opApply(dg);
-	}
-	int opApply(scope int delegate(HashType, ref E) ` ~ attr ~ ` dg) ` ~ attr ~ ` {
-		return backend.opApply(dg);
-	}`;
-		}
-		string result;
-		foreach (attr; attrList) result ~= makeFundIndiv(attr);
-		return result;
-	}
-	mixin(makeFunc);
 }
 
 unittest {

@@ -20,8 +20,10 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 		K		key;	///Identifier key
 		E		elem;	///Element stored within the node
 		Node*	next;	///Next node, null if none exists
+		Node*	prev;	///Previous node, null if none exists
 	}
 	protected Node*		root;	///Root element.
+	protected Node*		last;	///Last element.
 	protected size_t	_length;///N. of currently stored elements
 	/**
 	 * opApply override for foreach.
@@ -45,6 +47,28 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 		}
 		return 0;
 	}
+	/**
+	 * opApplyReverse override for foreach.
+	 */
+	int opApplyReverse(scope int delegate(ref E) dg) {
+		Node* crnt = last;
+		while (crnt) {
+			if (dg(crnt.elem)) return 1;
+			crnt = crnt.prev;
+		}
+		return 0;
+	}
+	/**
+	 * opApplyReverse override for foreach.
+	 */
+	int opApplyReverse(scope int delegate(K, ref E) dg) {
+		Node* crnt = last;
+		while (crnt) {
+			if (dg(crnt.key, crnt.elem)) return 1;
+			crnt = crnt.prev;
+		}
+		return 0;
+	}
 	package static string makeFunc() {
 		string makeFuncIndiv(string args) {
 			return `
@@ -61,6 +85,22 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 				while (crnt) {
 					if (dg(crnt.key, crnt.elem)) return 1;
 					crnt = crnt.next;
+				}
+				return 0;
+			}
+			int opApplyReverse(scope int delegate(ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+				Node* crnt = last;
+				while (crnt) {
+					if (dg(crnt.elem)) return 1;
+					crnt = crnt.prev;
+				}
+				return 0;
+			}
+			int opApplyReverse(scope int delegate(K, ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
+				Node* crnt = last;
+				while (crnt) {
+					if (dg(crnt.key, crnt.elem)) return 1;
+					crnt = crnt.prev;
 				}
 				return 0;
 			}`;
@@ -80,7 +120,7 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 		E opIndex(K key) @nogc @safe pure nothrow {
             Node* crnt = root;
 			while (crnt) {
-				if (crnt.key == key) return crnt.elem;
+				if (binaryFun!equal(crnt.key, key)) return crnt.elem;
 				crnt = crnt.next;
 			}
 			return E.init;
@@ -92,7 +132,7 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 		E* ptrOf(K key) @nogc @safe pure nothrow {
 			Node* crnt = root;
 			while (crnt) {
-				if (crnt.key == key) return &crnt.elem;
+				if (binaryFun!equal(crnt.key, key)) return &crnt.elem;
 				crnt = crnt.next;
 			}
 			return null;
@@ -105,7 +145,7 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 		ref E opIndex(K key) @safe pure {
             Node* crnt = root;
 			while (crnt) {
-				if (crnt.key == key) return crnt.elem;
+				if (binaryFun!equal(crnt.key, key)) return crnt.elem;
 				crnt = crnt.next;
 			}
 			throw new ElementNotFoundException("Key not found!");
@@ -115,17 +155,15 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 	 * Assigns a value to the given key.
 	 */
 	auto opIndexAssign(E value, K key) @safe pure nothrow {
-		/+if(!root) {
-			root = new Node(key, value, null);
-			_length++;
-			return value;
-		}+/
 		Node** crnt = &root;
 		while (*crnt) {
 			static if (ovrwrtBhvr) {
-				if ((*crnt).key == key) return (*crnt).elem = value;
+				if (binaryFun!equal((*crnt).key, key)) { 
+					return (*crnt).elem = value;
+				}
 			} else {
-				if ((*crnt).key == key) {
+				if (binaryFun!equal((*crnt).key, key)) {
+					if ((*crnt).next) (*crnt).next.prev = (*crnt).prev;
 					*crnt = &(*crnt).next;
 					length--;
 				}
@@ -134,7 +172,8 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 			crnt = &(*crnt).next;
 		}
 		//prev.next = new Node(key, value, null);
-		*crnt = new Node(key, value, null);
+		*crnt = new Node(key, value, null, *crnt);
+		last = *crnt;
 		_length++;
 		return value;
 	}
@@ -142,22 +181,16 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 	 * Removes a value with the given key and returns it.
 	 */
 	E remove(K key) @safe pure nothrow {
-		if (root.key == key) {
-			_length--;
-			E result = root.elem;
-			root = root.next;
-			return result;
-		}
-		Node* crnt = root.next, prev = root;
-		while (crnt) {
-			if (crnt.key == key) {
+		Node** crnt = &root;
+		while (*crnt) {
+			if (binaryFun!equal((*crnt).key, key)) {
+				E result = (*crnt).elem;
+				if ((*crnt).prev) (*crnt).prev.next = (*crnt).next;
+				if ((*crnt).next is null) last = (*crnt).prev;
+				*crnt = (*crnt).next;
 				_length--;
-				E result = root.elem;
-				prev.next = crnt.next;
 				return result;
 			}
-			prev = crnt;
-			crnt = crnt.next;
 		}
 		return E.init;
 	}
@@ -167,7 +200,7 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 	bool has(K key) @nogc @safe pure nothrow {
 		Node* crnt = root;
 		while (crnt) {
-			if (crnt.key == key) return true;
+			if (binaryFun!equal(crnt.key, key)) return true;
 			crnt = crnt.next;
 		}
 		return false;

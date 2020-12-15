@@ -9,7 +9,6 @@ import std.functional : binaryFun;
  * Has some optimization to stop searching after a given value has passed.
  * `cmp` can set both the direction of the array, and what parameters should be tested.
  * If `allowDuplicates` set false, the collection will act like a sorted set over an array, and won't allow any insertion of preexisting values.
- * Important: The elements stored within this container must have opCmp override with attributes `@safe`, `nothrow`, `pure`.
  */
 public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, alias equal = "a == b") {
 	private E[]			_array;		///The array where the elements are stored.
