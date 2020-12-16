@@ -185,12 +185,14 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 		while (*crnt) {
 			if (binaryFun!equal((*crnt).key, key)) {
 				E result = (*crnt).elem;
-				if ((*crnt).prev) (*crnt).prev.next = (*crnt).next;
+				//if ((*crnt).prev) (*crnt).prev.next = (*crnt).next;
 				if ((*crnt).next is null) last = (*crnt).prev;
+				else (*crnt).next.prev = (*crnt).prev;
 				*crnt = (*crnt).next;
 				_length--;
 				return result;
 			}
+			crnt = &(*crnt).next;
 		}
 		return E.init;
 	}
@@ -238,6 +240,12 @@ unittest {
 
 		}
 		foreach(key, elem ; test1) {
+
+		}
+		foreach_reverse(elem ; test1) {
+
+		}
+		foreach_reverse(key, elem ; test1) {
 
 		}
 	}

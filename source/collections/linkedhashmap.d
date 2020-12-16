@@ -17,22 +17,17 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 	///true if nogc Indexing is enabled.
 	static enum bool nogcIndexing = hasFunctionAttributes!(hashFunc, "@nogc");
 	alias HashType = ReturnType!hashFunc;
-	static if (retainKeys) {
-		private struct Node {
-			HashType	hashCode;	///Identifier hash
+	
+	private struct Node {
+		HashType	hashCode;	///Identifier hash
+		static if (retainKeys) {
 			K			key;		///The key for this node
-			E			elem;		///Element stored within the node
-			Node*		next;		///Next node, null if none exists
-			Node*		prev;		///Previous node, null if none exists
 		}
-	} else {
-		private struct Node {
-			HashType	hashCode;	///Identifier hash
-			E			elem;		///Element stored within the node
-			Node*		next;		///Next node, null if none exists
-			Node*		prev;		///Previous node, null if none exists
-		}
+		E			elem;		///Element stored within the node
+		Node*		next;		///Next node, null if none exists
+		Node*		prev;		///Previous node, null if none exists
 	}
+	
 	protected Node*		root;	///Root element.
 	protected Node*		last;	///Last element.
 	protected size_t	_length;///N. of currently stored elements
@@ -219,7 +214,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 		int opApply(scope int delegate(HashType, ref E) dg) {
 			Node* crnt = root;
 			while (crnt) {
-				if (dg(crnt.key, crnt.elem)) return 1;
+				if (dg(crnt.hashCode, crnt.elem)) return 1;
 				crnt = crnt.next;
 			}
 			return 0;
@@ -241,7 +236,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 		int opApplyReverse(scope int delegate(HashType, ref E) dg) {
 			Node* crnt = last;
 			while (crnt) {
-				if (dg(crnt.key, crnt.elem)) return 1;
+				if (dg(crnt.hashCode, crnt.elem)) return 1;
 				crnt = crnt.prev;
 			}
 			return 0;
@@ -260,7 +255,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				int opApply(scope int delegate(HashType, ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
 					Node* crnt = root;
 					while (crnt) {
-						if (dg(crnt.key, crnt.elem)) return 1;
+						if (dg(crnt.hashCode, crnt.elem)) return 1;
 						crnt = crnt.next;
 					}
 					return 0;
@@ -276,7 +271,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				int opApplyReverse(scope int delegate(HashType, ref E) ` ~ args ~ ` dg) ` ~ args ~ ` {
 					Node* crnt = last;
 					while (crnt) {
-						if (dg(crnt.key, crnt.elem)) return 1;
+						if (dg(crnt.hashCode, crnt.elem)) return 1;
 						crnt = crnt.prev;
 					}
 					return 0;
@@ -308,7 +303,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				crnt = &(*crnt).next;
 			}
 			//prev.next = new Node(key, value, null);
-			*crnt = new Node(key, value, null);
+			*crnt = new Node(hashCode, value, null, last);
 			last = *crnt;
 			_length++;
 			return value;
@@ -338,7 +333,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				const HashType hashCode = hashFunc(key);
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.elem;
 					crnt = crnt.next;
 				}
 				return E.init;
@@ -349,7 +344,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 			E opIndex(HashType hashCode) @nogc @safe pure nothrow {
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.elem;
 					crnt = crnt.next;
 				}
 				return E.init;
@@ -361,7 +356,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				const HashType hashCode = hashFunc(key);
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode)) return &(crnt.key);
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return &(crnt.elem);
 					crnt = crnt.next;
 				}
 				return null;
@@ -372,7 +367,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 			E* getPtr(HashType hashCode) @nogc @safe pure nothrow {
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode)) return &(crnt.key);
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return &(crnt.elem);
 					crnt = crnt.next;
 				}
 				return null;
@@ -381,11 +376,11 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 			/**
 			 * Returns the element with the given key, or E.init if key is not found.
 			 */
-			ref E opIndex(K key) @nogc @safe pure nothrow {
+			ref E opIndex(K key) @safe pure {
 				const HashType hashCode = hashFunc(key);
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.elem;
 					crnt = crnt.next;
 				}
 				throw new ElementNotFoundException("Key not found!");
@@ -393,10 +388,10 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 			/**
 			 * Returns the element with the given key, or E.init if key is not found.
 			 */
-			ref E opIndex(HashType hashCode) @nogc @safe pure nothrow {
+			ref E opIndex(HashType hashCode) @safe pure {
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.key;
+					if (binaryFun!equal(crnt.hashCode, hashCode)) return crnt.elem;
 					crnt = crnt.next;
 				}
 				throw new ElementNotFoundException("Key not found!");
@@ -411,7 +406,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				const HashType hashCode = hashFunc(key);
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return crnt.key;
+					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return crnt.elem;
 					crnt = crnt.next;
 				}
 				return E.init;
@@ -423,7 +418,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				const HashType hashCode = hashFunc(key);
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return &(crnt.key);
+					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return &(crnt.elem);
 					crnt = crnt.next;
 				}
 				return null;
@@ -432,11 +427,11 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 			/**
 			 * Returns the element with the given key, or E.init if key is not found.
 			 */
-			ref E opIndex(K key) @nogc @safe pure nothrow {
+			ref E opIndex(K key) @safe pure {
 				const HashType hashCode = hashFunc(key);
 				Node* crnt = root;
 				while (crnt) {
-					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return crnt.key;
+					if (binaryFun!equal(crnt.hashCode, hashCode) && binaryFun!keyEqual(crnt.key, key)) return crnt.elem;
 					crnt = crnt.next;
 				}
 				throw new ElementNotFoundException("Key not found!");
@@ -449,7 +444,7 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 	bool has(HashType hashCode) @nogc @safe pure nothrow {
 		Node* crnt = root;
 		while (crnt) {
-			if (binaryFun!equal(crnt.key, key)) return true;
+			if (binaryFun!equal(crnt.hashCode, hashCode)) return true;
 			crnt = crnt.next;
 		}
 		return false;
