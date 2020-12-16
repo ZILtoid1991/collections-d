@@ -26,6 +26,14 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 		E			elem;		///Element stored within the node
 		Node*		next;		///Next node, null if none exists
 		Node*		prev;		///Previous node, null if none exists
+		///Keturns a string representation of the node.
+		string toString() const {
+			import std.conv : to;
+			string result = "hashCode: " ~ to!string(hashCode) ~ " ; elem: " ~ to!string(elem);
+			static if (retainKeys) result ~= " ; key: " ~ to!string(key);
+			if (next) result ~= " ; next: [" ~ next.toString ~ "]";
+			return result;
+		}
 	}
 	
 	protected Node*		root;	///Root element.
@@ -140,14 +148,14 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				} else {
 					if (binaryFun!equal((*crnt).hashCode, hashCode)) {
 						if ((*crnt).prev) (*crnt).prev.next = (*crnt).next;
-						*crnt = &(*crnt).next;
-						length--;
+						*crnt = (*crnt).next;
+						_length--;
 					}
 				}
 				crnt = &(*crnt).next;
 			}
 			//prev.next = new Node(key, value, null);
-			*crnt = new Node(key, value, null);
+			*crnt = new Node(hashCode, key, value, null, *crnt);
 			last = *crnt;
 			_length++;
 			return value;
@@ -455,13 +463,45 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 	@property size_t length() @nogc @safe pure nothrow const {
 		return _length;
 	}
+	///Returns the string representation of this container format
+	string toString() const {
+		if (root) return root.toString;
+		else return "empty";
+	}
 }
 
 unittest {
-	alias StringMap = LinkedHashMap!(string, string);
-	StringMap d;
-	d["AAAAAAAAA"] = "AAAAAAAAA";
-	d["Hello World!"] = "Hello Vilag!";
-	assert(d["AAAAAAAAA"] == "AAAAAAAAA");
-	assert(d["Hello World!"] == "Hello Vilag!");
+	import std.random : uniform;
+	import std.exception : assertThrown;
+	import std.stdio : writeln;
+	{
+		alias StringMap = LinkedHashMap!(string, string);
+		StringMap d;
+		d["AAAAAAAAA"] = "AAAAAAAAA";
+		d["Hello World!"] = "Hello Vilag!";
+		assert(d["AAAAAAAAA"] == "AAAAAAAAA");
+		assert(d["Hello World!"] == "Hello Vilag!");
+	}
+	{
+		alias StringMap = LinkedHashMap!(string, string, defaultHash128!(string), "a == b", true, "a == b", true);
+		StringMap d;
+		d["AAAA"] = "AAAA";
+		d["BBBB"] = "BBBB";
+		d["CCCC"] = "CCCC";
+		d["DDDD"] = "DDDD";
+		writeln(d);
+		d["CCCC"] = "eeee";
+		writeln(d);
+	}
+	{
+		alias StringMap = LinkedHashMap!(string, string, defaultHash128!(string), "a == b", true, "a == b", false);
+		StringMap d;
+		d["AAAA"] = "AAAA";
+		d["BBBB"] = "BBBB";
+		d["CCCC"] = "CCCC";
+		d["DDDD"] = "DDDD";
+		writeln(d);
+		d["CCCC"] = "eeee";
+		writeln(d);
+	}
 }

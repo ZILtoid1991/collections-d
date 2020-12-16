@@ -21,6 +21,14 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 		E		elem;	///Element stored within the node
 		Node*	next;	///Next node, null if none exists
 		Node*	prev;	///Previous node, null if none exists
+
+		///Keturns a string representation of the node.
+		string toString() const {
+			import std.conv : to;
+			string result = "key: " ~ to!string(key) ~ " ; elem: " ~ to!string(elem);
+			if (next) result ~= " ; next: [" ~ next.toString ~ "]";
+			return result;
+		}
 	}
 	protected Node*		root;	///Root element.
 	protected Node*		last;	///Last element.
@@ -164,8 +172,8 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 			} else {
 				if (binaryFun!equal((*crnt).key, key)) {
 					if ((*crnt).next) (*crnt).next.prev = (*crnt).prev;
-					*crnt = &(*crnt).next;
-					length--;
+					crnt = &(*crnt).next;
+					_length--;
 				}
 			}
 			//prev = crnt;
@@ -213,11 +221,17 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 	@property size_t length() @nogc @safe pure nothrow const {
 		return _length;
 	}
+	///Returns the string representation of this container format
+	string toString() const {
+		if (root) return root.toString;
+		else return "empty";
+	}
 }
 
 unittest {
 	import std.random : uniform;
 	import std.exception : assertThrown;
+	import std.stdio : writeln;
 	{
 		alias IntMap = LinkedMap!(int, int);
 		IntMap test0, test1;
@@ -258,5 +272,40 @@ unittest {
 		test2[3] = 1;
 		test2[4] = 1;
 		assertThrown!ElementNotFoundException(test2[8]);
+	}
+	//test FIFO behavior
+	{
+		alias IntMap = LinkedMap!(int, int, true, "a == b", true);
+		IntMap test3;
+		test3[0] = 0;
+		writeln(test3);
+		test3[1] = 1;
+		writeln(test3);
+		test3[2] = 2;
+		writeln(test3);
+		test3[3] = 3;
+		writeln(test3);
+		test3[4] = 4;
+		writeln(test3);
+		//overwriting key 3 should not distrupt the order
+		test3[3] = 5;
+		writeln(test3);
+	}
+	{
+		alias IntMap = LinkedMap!(int, int, true, "a == b", false);
+		IntMap test3;
+		test3[0] = 0;
+		writeln(test3);
+		test3[1] = 1;
+		writeln(test3);
+		test3[2] = 2;
+		writeln(test3);
+		test3[3] = 3;
+		writeln(test3);
+		test3[4] = 4;
+		writeln(test3);
+		//overwriting key 3 should put key 3 at the end
+		test3[3] = 5;
+		writeln(test3);
 	}
 }
