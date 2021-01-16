@@ -489,9 +489,17 @@ unittest {
 		d["BBBB"] = "BBBB";
 		d["CCCC"] = "CCCC";
 		d["DDDD"] = "DDDD";
+		assert("AAAA" == "AAAA");
+		assert("BBBB" == "BBBB");
+		assert("CCCC" == "CCCC");
+		assert("DDDD" == "DDDD");
 		writeln(d);
 		d["CCCC"] = "eeee";
 		writeln(d);
+		foreach (key, elem; d) {}
+		foreach_reverse (key, elem; d) {}
+		foreach (key; d) {}
+		foreach_reverse (key; d) {}
 	}
 	{
 		alias StringMap = LinkedHashMap!(string, string, defaultHash128!(string), "a == b", true, "a == b", false);
@@ -500,8 +508,16 @@ unittest {
 		d["BBBB"] = "BBBB";
 		d["CCCC"] = "CCCC";
 		d["DDDD"] = "DDDD";
+		assert("AAAA" == "AAAA");
+		assert("BBBB" == "BBBB");
+		assert("CCCC" == "CCCC");
+		assert("DDDD" == "DDDD");
 		writeln(d);
 		d["CCCC"] = "eeee";
 		writeln(d);
+		foreach (key, elem; d) {}
+		foreach_reverse (key, elem; d) {}
+		foreach (key; d) {}
+		foreach_reverse (key; d) {}
 	}
 }
