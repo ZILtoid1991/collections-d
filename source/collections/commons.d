@@ -39,9 +39,9 @@ public class IncorrectArgumentsException : Exception {
 /**
  * Standard digest function for hashing, using the MurMurHash3/32 algorithm
  */
-uint defaultHash(R)(R src) @trusted pure nothrow {
-	ubyte[] helperFunc() @system pure nothrow {
-		return cast(ubyte[])(cast(void[])src.dup);
+uint defaultHash(R)(R src) @nogc @trusted pure nothrow {
+	const (ubyte)[] helperFunc() @nogc @system pure nothrow {
+		return cast(const (ubyte)[])(cast(const (void)[])src);
 	}
 	MurmurHash3!32 hashFunc;
 	hashFunc.put(helperFunc);
@@ -51,9 +51,9 @@ uint defaultHash(R)(R src) @trusted pure nothrow {
 /**
  * Standard digest function for hashing, using the MurMurHash3/128 algorithm
  */
-ubyte[16] defaultHash128(R)(R src) @trusted pure nothrow {
-	ubyte[] helperFunc() @system pure nothrow {
-		return cast(ubyte[])(cast(void[])src.dup);
+ubyte[16] defaultHash128(R)(R src) @nogc @trusted pure nothrow {
+	const (ubyte)[] helperFunc() @nogc @system pure nothrow {
+		return cast(const (ubyte)[])(cast(const (void)[])src);
 	}
 	MurmurHash3!128 hashFunc;
 	hashFunc.put(helperFunc);
