@@ -206,6 +206,33 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 		}
 	} else {
 		/**
+		 * Removes the element with the specified key.
+		 * Returns the removed element.
+		 */
+		E remove(K key) @safe pure nothrow {
+			return remove(hashFunc(key));
+		}
+		/**
+		 * Removes the element with the specified hashcode.
+		 * Returns the removed element.
+		 */
+		E remove(HashType hashcode) @safe pure nothrow {
+			Node** crnt = &root;
+			while (*crnt) {
+				if (binaryFun!equal((*crnt).hashCode, hashcode)) {
+					E result = (*crnt).elem;
+					//if ((*crnt).prev) (*crnt).prev.next = (*crnt).next;
+					if ((*crnt).next is null) last = (*crnt).prev;
+					else (*crnt).next.prev = (*crnt).prev;
+					*crnt = (*crnt).next;
+					_length--;
+					return result;
+				}
+				crnt = &(*crnt).next;
+			}
+			return E.init;
+		}
+		/**
 		 * opApply override for foreach
 		 */
 		int opApply(scope int delegate(ref E) dg) {
@@ -481,6 +508,9 @@ unittest {
 		d["Hello World!"] = "Hello Vilag!";
 		assert(d["AAAAAAAAA"] == "AAAAAAAAA");
 		assert(d["Hello World!"] == "Hello Vilag!");
+		assert(d.remove("AAAAAAAAA") == "AAAAAAAAA");
+		assert(d.remove("a") == string.init);
+		foreach (key; d) {}
 	}
 	{
 		alias StringMap = LinkedHashMap!(string, string, defaultHash128!(string), "a == b", true, "a == b", true);
