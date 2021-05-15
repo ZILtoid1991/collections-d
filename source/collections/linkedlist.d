@@ -233,6 +233,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 					E result = (*crnt).elem;
 					*crnt = (*crnt).next;
 					nOfElements--;
+					end--;
 					return result;
 				}
 				crnt = &(*crnt).next;
@@ -441,6 +442,9 @@ unittest {
 	lnl ~= [8, 6, 4, 2, 9];
 	assert(lnl.arrayOf == [11, 5, 8, 8, 6, 4, 2, 9], lnl.toString);
 	assert(lnl[2..6].arrayOf == [8, 8, 6, 4], lnl[2..6].toString);
+	foreach (e; lnl) {
+
+	}
 }
 
 unittest {
@@ -470,6 +474,9 @@ unittest {
 	sa.removeByElem(-1);
 	assert(sa.length == 3);
 	assert(!sa.has(-1));
+	foreach (e ; sa) {
+
+	}
 }
 
 unittest {	//test set operators
