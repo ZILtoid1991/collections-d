@@ -232,6 +232,7 @@ public struct LinkedList(E, bool allowDuplicates = true, alias equal = "a == b")
 				if (binaryFun!equal((*crnt).elem, value)) {
 					E result = (*crnt).elem;
 					*crnt = (*crnt).next;
+					nOfElements--;
 					return result;
 				}
 				crnt = &(*crnt).next;
@@ -466,6 +467,9 @@ unittest {
 	assert(sc.has(10), sc.toString());
 	assert(sd.has(-1), sd.toString());
 	assert(!se.has(-1), se.toString());
+	sa.removeByElem(-1);
+	assert(sa.length == 3);
+	assert(!sa.has(-1));
 }
 
 unittest {	//test set operators
