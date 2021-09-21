@@ -182,6 +182,11 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 				}
 				return false;
 			}
+			auto opBinaryRight(string op)(const K key) @nogc @safe pure nothrow {
+				static if (op == "in") {
+					return has(key);
+				} else static assert(0, "Operator not supported!");
+			}
 		} else {
 			/**
 			 * Returns true if key is found.
@@ -202,6 +207,11 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 					crnt = crnt.next;
 				}
 				return false;
+			}
+			auto opBinaryRight(string op)(const K key) @safe pure nothrow {
+				static if (op == "in") {
+					return has(key);
+				} else static assert(0, "Operator not supported!");
 			}
 		}
 	} else {
@@ -350,12 +360,22 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 			bool has(K key) @nogc @safe pure nothrow {
 				return has(hashFunc(key));
 			}
+			auto opBinaryRight(string op, K)(const K key) @nogc @safe pure nothrow {
+				static if (op == "in") {
+					return has(key);
+				} else static assert(0, "Operator not supported!");
+			}
 		} else {
 			/**
 			 * Returns true if key is found.
 			 */
 			bool has(K key) @safe pure {
 				return has(hashFunc(key));
+			}
+			auto opBinaryRight(string op, K)(const K key) @safe pure {
+				static if (op == "in") {
+					return has(key);
+				} else static assert(0, "Operator not supported!");
 			}
 		}
 	}
@@ -483,6 +503,11 @@ public struct LinkedHashMap(K, E, alias hashFunc = defaultHash128!(K), alias equ
 			crnt = crnt.next;
 		}
 		return false;
+	}
+	auto opBinaryRight(string op)(const HashType key) @nogc @safe pure nothrow {
+		static if (op == "in") {
+			return has(key);
+		} else static assert(0, "Operator not supported!");
 	}
 	/**
 	 * Returns the number of elements in the LinkedMap.

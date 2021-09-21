@@ -96,6 +96,11 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 			}
 			return false;
 		}
+		auto opBinaryRight(string op)(const E key) @safe pure nothrow {
+			static if (op == "in") {
+				return has(key);
+			} else static assert(0, "Operator not supported!");
+		}
 		/**
 		 * Returns the amount of elements found in the set.
 		 */
@@ -419,4 +424,5 @@ unittest {
 	assert(diff_ab.hasRange([3, 7]) == 2);
 	assert(diff_ac.hasRange([1, 5, 9]) == 3);
 	assert(diff_bc.hasRange([1, 3, 5, 7, 9]) == 5);
+	assert(5 in diff_bc);
 }

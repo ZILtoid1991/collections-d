@@ -39,6 +39,22 @@ public struct LinkedHashSet(K, alias hashFunc = defaultHash128!(K), alias equal 
 	bool has(K key) @safe pure nothrow {
 		return backend.has(hashFunc(key));
 	}
+	auto opBinaryRight(string op)(const K key) @safe pure nothrow {
+		static if (op == "in") {
+			return has(key);
+		} else static assert(0, "Operator not supported!");
+	}
+	/**
+	 * Returns true if the element exists within the set, false otherwise.
+	 */
+	bool has(HashType key) @safe pure nothrow {
+		return backend.has(key);
+	}
+	auto opBinaryRight(string op)(const HashType key) @safe pure nothrow {
+		static if (op == "in") {
+			return has(key);
+		} else static assert(0, "Operator not supported!");
+	}
 	/**
 	 * Returns the amount of elements found in the set.
 	 */
@@ -159,6 +175,7 @@ unittest {
 	alias MatchFinder = LinkedHashSet!(string);
 	MatchFinder set = MatchFinder(["AAAAAA","BBBBBB","CCCCCC","DDDDDD"]);
 	assert(set.has("AAAAAA"));
+	assert("AAAAAA" in set);
 	assert(set.has("BBBBBB"));
 	assert(set.has("CCCCCC"));
 	assert(set.has("DDDDDD"));

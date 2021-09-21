@@ -39,6 +39,28 @@ public struct HashMap(K, E, alias hashFunc = defaultHash!K, alias less = "a < b"
         E* ptrOf(HashType key) @nogc @safe pure nothrow {
             return backend.ptrOf(key);
         }
+		/**
+		 * Returns true if the element exists within the set, false otherwise.
+		 */
+		bool has(K key) @nogc @safe pure nothrow {
+			return backend.has(hashFunc(key));
+		}
+		auto opBinaryRight(string op)(const K key) @nogc @safe pure nothrow {
+			static if (op == "in") {
+				return has(key);
+			} else static assert(0, "Operator not supported!");
+		}
+		/**
+		 * Returns true if the element exists within the set, false otherwise.
+		 */
+		bool has(HashType key) @nogc @safe pure nothrow {
+			return backend.has(key);
+		}
+		auto opBinaryRight(string op)(const HashType key) @nogc @safe pure nothrow {
+			static if (op == "in") {
+				return has(key);
+			} else static assert(0, "Operator not supported!");
+		}
 	} else {
 		/**
 		 * Indexing function that relies on the GC, and throws if no match found.
@@ -50,6 +72,28 @@ public struct HashMap(K, E, alias hashFunc = defaultHash!K, alias less = "a < b"
         ///Ditto
         ref E opIndex(HashType key) @safe pure {
 			return backend.opIndex(key);
+		}
+		/**
+		 * Returns true if the element exists within the set, false otherwise.
+		 */
+		bool has(K key) @safe pure {
+			return backend.has(hashFunc(key));
+		}
+		auto opBinaryRight(string op)(const K key) @safe pure {
+			static if (op == "in") {
+				return has(key);
+			} else static assert(0, "Operator not supported!");
+		}
+		/**
+		 * Returns true if the element exists within the set, false otherwise.
+		 */
+		bool has(HashType key) @safe pure {
+			return backend.has(hashFunc(key));
+		}
+		auto opBinaryRight(string op)(const HashType key) @safe pure {
+			static if (op == "in") {
+				return has(key);
+			} else static assert(0, "Operator not supported!");
 		}
 	}
 	/**
@@ -121,6 +165,8 @@ unittest {
 	Dictionary d;
 	d["AAAAAAAAA"] = "AAAAAAAAA";
 	d["Hello World!"] = "Hello Vilag!";
+	assert(!(0 in d));
+	assert("AAAAAAAAA" in d);
 	assert(d["AAAAAAAAA"] == "AAAAAAAAA");
 	assert(d["Hello World!"] == "Hello Vilag!");
 }

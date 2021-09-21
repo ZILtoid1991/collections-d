@@ -35,13 +35,29 @@ public struct HashSet(K, alias hashFunc = defaultHash!K, alias less = "a < b") {
 	/**
 	 * Returns true if the element exists within the set, false otherwise.
 	 */
-	bool has(K key) @safe pure nothrow {
+	bool has(K key) @nogc @safe pure nothrow {
 		return backend.has(hashFunc(key));
+	}
+	auto opBinaryRight(string op)(const K key) @nogc @safe pure nothrow {
+		static if (op == "in") {
+			return has(key);
+		} else static assert(0, "Operator not supported!");
+	}
+	/**
+	 * Returns true if the element exists within the set, false otherwise.
+	 */
+	bool has(HashType key) @nogc @safe pure nothrow {
+		return backend.has(key);
+	}
+	auto opBinaryRight(string op)(const K key) @nogc @safe pure nothrow {
+		static if (op == "in") {
+			return has(key);
+		} else static assert(0, "Operator not supported!");
 	}
 	/**
 	 * Returns the amount of elements found in the set.
 	 */
-	size_t hasRange(R)(R range) @safe pure nothrow {
+	size_t hasRange(R)(R range) @nogc @safe pure nothrow {
 		size_t result;
 		foreach (key; range) {
 			if(has(key)) result++;

@@ -15,14 +15,14 @@ public import collections.commons;
 public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 	private struct Node {
 		K				key;		///Identifier key, also used for automatic sorting
-		static if (E.stringof != "void")
+		static if (typeid(E) !is typeid(void))//(E.stringof != "void")
 			E			elem;		///The element stored in this field if exists
 		Node*			left;		///The node that holds a key with a lesser value
 		Node*			right;		///The node that holds a key with a greater value
 		string toString() const {
 			import std.conv : to;
 			string result = "{K: " ~ to!string(key) ~ " ; ";
-			static if (E.stringof != "void")
+			static if (typeid(E) !is typeid(void))
 				result ~= "E: " ~ to!string(elem) ~ " ; ";
 			if (left) result ~= "L: " ~ left.toString() ~ " ; ";
 			if (right) result ~= "R: " ~ right.toString() ~ " ; ";
@@ -41,7 +41,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			const size_t rhs = right ? right.height + 1 : 0;
 			return lhs >= rhs ? lhs : rhs;
 		}
-		static if (E.stringof != "void"){
+		static if (typeid(E) !is typeid(void)){
 			/**
 			 * Implements a simple left-to-right tree traversal.
 			 */
@@ -228,7 +228,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			 * Returns the found element if match found.
 			 * Returns E.init if match not found.
 			 */
-			E opIndex(K key) @nogc @safe pure nothrow {
+			E opIndex(const K key) @nogc @safe pure nothrow {
 				Node* crnt = root;
 				while(crnt) {
 					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
@@ -245,7 +245,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			/**
 			 * Returns the pointer of the element, or null if key not found.
 			 */
-			E* ptrOf(K key) @nogc @safe pure nothrow {
+			E* ptrOf(const K key) @nogc @safe pure nothrow {
 				Node* crnt = root;
 				while(crnt) {
 					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
@@ -254,10 +254,20 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 						crnt = crnt.right;
 					} else {	//match found, return element
 						return &crnt.elem;
-						
 					}
 				}
 				return null;
+			}
+			/**
+			 * Returns true if the treemap has the key.
+			 */
+			bool has(const K key) @nogc @safe pure nothrow {
+				return ptrOf(key) !is null;
+			}
+			auto opBinaryRight(string op, K)(const K key) @nogc @safe pure nothrow {
+				static if (op == "in") {
+					return has(key);
+				} else static assert(0, "Operator not supported!");
 			}
 		} else {
 			/**
@@ -278,6 +288,27 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 				}
 				throw new ElementNotFoundException("No match found");
 			}
+			/**
+			 * Returns true if the treemap has the key.
+			 */
+			bool has(const K key) @nogc @safe pure nothrow {
+				Node* crnt = root;
+				while(crnt) {
+					if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
+						crnt = crnt.left;
+					} else if(binaryFun!less(crnt.key, key)) {			//key is greater than current element's, look at greater elements
+						crnt = crnt.right;
+					} else {	//match found, return element
+						return true;
+					}
+				}
+				return false;
+			}
+			auto opBinaryRight(string op, K)(const K key) @nogc @safe pure nothrow {
+				static if (op == "in") {
+					return has(key);
+				} else static assert(0, "Operator not supported!");
+			}
 		}
 	} else {
 		/**
@@ -289,7 +320,7 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		/**
 		 * Returns true if the element exists within the set, false otherwise.
 		 */
-		public bool has(T)(T key) @nogc @safe pure nothrow {
+		public bool has(T)(const T key) @nogc @safe pure nothrow {
 			Node* crnt = root;
 			while(crnt) {
 				if(binaryFun!less(key, crnt.key)) {		//key is smaller than current element's, look at lesser elements
@@ -302,6 +333,11 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			}
 			return false;
 		}
+		auto opBinaryRight(string op, T)(const T key) {
+				static if (op == "in") {
+					return has(key);
+				} else static assert(0, "Operator not supported!");
+			}
 		/**
 		 * Returns the amount of elements found in the set.
 		 */
@@ -832,7 +868,7 @@ unittest {
 		alias IntMap = TreeMap!(int, int, true);
 		IntMap test0, test1, test2, test3;
 		for(int i ; i < 1024 ; i++)//Stress test to see if large number of elements would cause any issues
-			test0[uniform(0, 65536)] = i;
+			test0[uniform(0, 65_536)] = i;
 		foreach(k, e; test0){
 
 		}
@@ -840,16 +876,17 @@ unittest {
 
 		}
 		for(int i ; i < 16 ; i++)
-			test1[uniform(0, 65536)] = i;
+			test1[uniform(0, 65_536)] = i;
 		//writeln(test1.toString);
 		for(int i ; i < 32 ; i++)
-			test2[uniform(0, 65536)] = i;
+			test2[uniform(0, 65_536)] = i;
 		//writeln(test2.toString);
 		for(int i ; i < 64 ; i++)
 			test3[i] = i;
 		for(int i ; i < 64 ; i++)
 			write(test3[i],";");
 		writeln();
+		assert(5 in test3);
 		for(int i ; i < 16 ; i++)
 			test3.remove(uniform(0,64));
 		foreach(i ; test3)
@@ -871,18 +908,20 @@ unittest {
 			test1[i] = i;
 			writeln(test1.toString);
 		}
+		assert(5 in test1);
 	}
 	{
 		alias IntMap = TreeMap!(int, void, true);
 		IntMap test0;
 		for(int i ; i < 64 ; i++) {
 			test0.put(i);
-			writeln(test0.toString());
+			//writeln(test0.toString());
 		}
+		assert(5 in test0);
 		assert(test0.length == 64, "TreeMap length mismatch");
 		for(int i ; i < 64 ; i++) {
 			test0.remove(i);
-			writeln(test0.toString());
+			//writeln(test0.toString());
 		}
 		assert(test0.length == 0, "Treemap item removal failure");
 	}
@@ -891,8 +930,9 @@ unittest {
 		IntMap test0;
 		for(int i ; i < 64 ; i++) {
 			test0.put(i);
-			writeln(test0.toString());
+			//writeln(test0.toString());
 		}
+		assert(5 in test0);
 		assert(test0.length == 64, "TreeMap length mismatch");
 		assertThrown!ElementNotFoundException(test0[420]);
 		assertThrown!ElementNotFoundException(test0[666]);

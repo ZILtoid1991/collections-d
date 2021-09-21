@@ -145,6 +145,22 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 			}
 			return null;
 		}
+		/**
+		 * Returns true if key is found.
+		 */
+		bool has(K key) @nogc @safe pure nothrow {
+			Node* crnt = root;
+			while (crnt) {
+				if (binaryFun!equal(crnt.key, key)) return true;
+				crnt = crnt.next;
+			}
+			return false;
+		}
+		auto opBinaryRight(string op)(const K key) @nogc @safe pure nothrow {
+			static if (op == "in") {
+				return has(key);
+			} else static assert(0, "Operator not supported!");
+		}
 	} else {
 		/**
 		 * Returns the element with the given key.
@@ -157,6 +173,22 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 				crnt = crnt.next;
 			}
 			throw new ElementNotFoundException("Key not found!");
+		}
+		/**
+		 * Returns true if key is found.
+		 */
+		bool has(K key) @safe pure {
+			Node* crnt = root;
+			while (crnt) {
+				if (binaryFun!equal(crnt.key, key)) return true;
+				crnt = crnt.next;
+			}
+			return false;
+		}
+		auto opBinaryRight(string op)(const K key) @safe pure {
+			static if (op == "in") {
+				return has(key);
+			} else static assert(0, "Operator not supported!");
 		}
 	}
 	/**
@@ -203,17 +235,6 @@ public struct LinkedMap(K, E, bool nogcIndexing = true, alias equal = "a == b", 
 			crnt = &(*crnt).next;
 		}
 		return E.init;
-	}
-	/**
-	 * Returns true if key is found.
-	 */
-	bool has(K key) @nogc @safe pure nothrow {
-		Node* crnt = root;
-		while (crnt) {
-			if (binaryFun!equal(crnt.key, key)) return true;
-			crnt = crnt.next;
-		}
-		return false;
 	}
 	/**
 	 * Returns the number of elements in the LinkedMap.
@@ -271,6 +292,7 @@ unittest {
 		test2[2] = 1;
 		test2[3] = 1;
 		test2[4] = 1;
+		assert(4 in test2);
 		assertThrown!ElementNotFoundException(test2[8]);
 	}
 	//test FIFO behavior
@@ -289,6 +311,7 @@ unittest {
 		writeln(test3);
 		//overwriting key 3 should not distrupt the order
 		test3[3] = 5;
+		assert(4 in test3);
 		writeln(test3);
 	}
 	{
@@ -306,6 +329,7 @@ unittest {
 		writeln(test3);
 		//overwriting key 3 should put key 3 at the end
 		test3[3] = 5;
+		assert(4 in test3);
 		writeln(test3);
 	}
 }

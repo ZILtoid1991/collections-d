@@ -112,6 +112,7 @@ The library has some standardized set operators, repurposing preexisting operato
 * `&` and `*`: intersection
 * `-` and `/`: complement
 * `^`: difference
+* `in`: returns true if key found
 
 ```D
     alias IntSet = TreeMap!(int, void, true);
