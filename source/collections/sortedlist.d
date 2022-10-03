@@ -353,6 +353,9 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 	foreach(e; sis) {
 		writeln(e);
 	}
+	SortedIntList a = SortedIntList([0]);
+	a.remove(0);
+	assert(a.length == 0);
 }
 
 @safe unittest {

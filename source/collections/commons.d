@@ -3,10 +3,9 @@ module collections.commons;
 import std.digest.murmurhash;
 
 ///Contains all possible basic attributes that might be used in a foreach situation
-static immutable string[] attrList = ["@trusted", "@safe", "@nogc", "nothrow", "pure",
-	"@nogc nothrow", "@nogc pure", "nothrow pure", "@nogc nothrow pure",
-	/+"@trusted @nogc nothrow", "@trusted @nogc pure", "@trusted nothrow pure", "@trusted @nogc nothrow pure",+/
-	"@safe @nogc nothrow", "@safe @nogc pure", "@safe nothrow pure", "@safe @nogc nothrow pure",];
+static immutable string[] attrList = ["@safe", "@nogc", "nothrow", "pure",
+	"@nogc nothrow", "@nogc pure", "nothrow pure", "@nogc nothrow pure", "@safe nothrow",
+	"@safe @nogc nothrow", "@safe @nogc pure", "@safe nothrow pure", "@safe @nogc nothrow pure"];
 ///Generates overrides to be mixed in with regular code
 string generateOverrides()(){
 	string result;

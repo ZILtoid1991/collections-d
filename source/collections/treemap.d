@@ -830,26 +830,6 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 		return nOfElements;
 	}
 	/**
-	 * Returns the key of the n-th element.
-	 * NOT WORKING!
-	 */
-	/+public K keyOf(size_t n) {
-		static if(E.stringof != "void"){
-			foreach (key, elem; root) {
-				if (n == 0) {
-					return key;
-				} else n--;
-			}
-		} else {
-			foreach (key; root) {
-				if (n == 0) {
-					return key;
-				} else n--;
-			}
-		}
-		return K.init;
-	}+/
-	/**
 	 * Returns the string representation of the tree.
 	 */
 	public string toString() const {
