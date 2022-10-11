@@ -75,12 +75,12 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			 */
 			int opApplyReverse(scope int delegate(ref E) dg) {
 				if(right !is null)
-					if(right.opApply(dg))
+					if(right.opApplyReverse(dg))
 						return 1;
 				if(dg(elem))
 					return 1;
 				if(left !is null)
-					if(left.opApply(dg))
+					if(left.opApplyReverse(dg))
 						return 1;
 				return 0;
 			}
@@ -89,12 +89,12 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 			 */
 			int opApplyReverse(scope int delegate(K, ref E) dg) {
 				if(right !is null)
-					if(right.opApply(dg))
+					if(right.opApplyReverse(dg))
 						return 1;
 				if(dg(key, elem))
 					return 1;
 				if(left !is null)
-					if(left.opApply(dg))
+					if(left.opApplyReverse(dg))
 						return 1;
 				return 0;
 			}
@@ -104,45 +104,45 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 					return "
 						int opApply(scope int delegate(ref E) " ~ attr ~ " dg) " ~ attr ~ " {
 							if(left !is null)
-								if(left.opApply(dg))
+								if(left.opApplyReverse(dg))
 									return 1;
 							if(dg(elem))
 								return 1;
 							if(right !is null)
-								if(right.opApply(dg))
+								if(right.opApplyReverse(dg))
 									return 1;
 							return 0;
 						}
 						int opApply(scope int delegate(K, ref E) " ~ attr ~ " dg) " ~ attr ~ " {
 							if(left !is null)
-								if(left.opApply(dg))
+								if(left.opApplyReverse(dg))
 									return 1;
 							if(dg(key, elem))
 								return 1;
 							if(right !is null)
-								if(right.opApply(dg))
+								if(right.opApplyReverse(dg))
 									return 1;
 							return 0;
 						}
 						int opApplyReverse(scope int delegate(ref E) " ~ attr ~ " dg) " ~ attr ~ " {
 							if(right !is null)
-								if(right.opApply(dg))
+								if(right.opApplyReverse(dg))
 									return 1;
 							if(dg(elem))
 								return 1;
 							if(left !is null)
-								if(left.opApply(dg))
+								if(left.opApplyReverse(dg))
 									return 1;
 							return 0;
 						}
 						int opApplyReverse(scope int delegate(K, ref E) " ~ attr ~ " dg) " ~ attr ~ " {
 							if(right !is null)
-								if(right.opApply(dg))
+								if(right.opApplyReverse(dg))
 									return 1;
 							if(dg(key, elem))
 								return 1;
 							if(left !is null)
-								if(left.opApply(dg))
+								if(left.opApplyReverse(dg))
 									return 1;
 							return 0;
 						}";
@@ -199,12 +199,12 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 					}
 					int opApplyReverse(scope int delegate(K) " ~ attr ~ " dg) " ~ attr ~ " {
 						if(right !is null)
-							if(right.opApply(dg))
+							if(right.opApplyReverse(dg))
 								return 1;
 						if(dg(key))
 							return 1;
 						if(left !is null)
-							if(left.opApply(dg))
+							if(left.opApplyReverse(dg))
 								return 1;
 						return 0;
 					}";
