@@ -8,7 +8,8 @@ import std.functional : binaryFun;
  * The container ensures that all of it's elements are ordered after any insertion.
  * Has some optimization to stop searching after a given value has passed.
  * `cmp` can set both the direction of the array, and what parameters should be tested.
- * If `allowDuplicates` set false, the collection will act like a sorted set over an array, and won't allow any insertion of preexisting values.
+ * If `allowDuplicates` set false, the collection will act like a sorted set over an array, and won't allow any 
+ * insertion of preexisting values.
  */
 public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, alias equal = "a == b") {
 	private E[]			_array;		///The array where the elements are stored.
@@ -86,19 +87,81 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 			}
 			return E.init;
 		}
+		/** 
+		 * Removes the element which is equal with the given one if the template is set to not allow duplicates.
+		 * Intended for use with structs and classes that can interface with the type of T through the cmp and equal
+		 * functions's overrides.
+		 * Returns the removed element, or E.init if not found.
+		 */
+		E removeBy(T)(T a) @safe nothrow pure {
+			foreach_reverse(i, b; _array) {
+				if(binaryFun!equal(a, b)) return this.remove(i);
+				else if(binaryFun!cmp(a, b)) break;
+			}
+			return E.init;
+		}
+		/** 
+		 * Looks up value `a` in the list, then returns the element equal with it. Returns E.init if not found.
+		 * Intended for use with structs and classes that can interface with the type of T through the cmp and equal
+		 * functions's overrides.
+		 */
+		E searchBy(T)(T a) @nogc @safe pure nothrow {
+			foreach_reverse(b; _array) {
+				if(binaryFun!equal(a, b)) return b;
+				else if(binaryFun!cmp(a, b)) break;
+			}
+			return E.init;
+		}
+		/** 
+		 * Looks up value `a` in the list, then returns a reference to the element equal with it. Throws an exception 
+		 * if not found.
+		 * Intended for use with structs and classes that can interface with the type of T through the cmp and equal
+		 * functions's overrides.
+		 */
+		E searchByRef(T)(T a) @safe pure {
+			foreach_reverse(ref E b; _array) {
+				if(binaryFun!equal(a, b)) return b;
+				else if(binaryFun!cmp(a, b)) break;
+			}
+			throw new ElementNotFoundException("Element not found!");
+		}
+		/** 
+		 * Looks up value `a` in the list, then returns the element equal with it. Returns null if not found.
+		 * Intended for use with structs and classes that can interface with the type of T through the cmp and equal
+		 * functions's overrides.
+		 */
+		E* searchByPtr(T)(T a) @nogc pure nothrow {
+			foreach_reverse(ref E b; _array) {
+				if(binaryFun!equal(a, b)) return &b;
+				else if(binaryFun!cmp(a, b)) break;
+			}
+			return null;
+		}
 		/**
 		 * Returns whether the set has the given element.
 		 */
-		bool has(E a) @nogc @safe nothrow pure {
-			foreach_reverse(i, b; _array) {
-				if(binaryFun!equal(a,b)) return true;
-				else if(binaryFun!cmp(a,b)) break;
+		bool has(const E a) @nogc @safe nothrow pure const {
+			foreach_reverse(b; _array) {
+				if(binaryFun!equal(a, b)) return true;
+				else if(binaryFun!cmp(a, b)) break;
 			}
 			return false;
 		}
-		auto opBinaryRight(string op)(const E key) @safe pure nothrow {
+		/**
+		 * Returns whether the set has the given element.
+		 * Intended for use with structs and classes that can interface with the type of T through the cmp and equal
+		 * functions's overrides.
+		 */
+		bool has(T)(const T a) @nogc @safe nothrow pure const {
+			foreach_reverse(b; _array) {
+				if(binaryFun!equal(a, b)) return true;
+				else if(binaryFun!cmp(a, b)) break;
+			}
+			return false;
+		}
+		auto opBinaryRight(string op, L)(const L lhs) const {
 			static if (op == "in") {
-				return has(key);
+				return has(lhs);
 			} else static assert(0, "Operator not supported!");
 		}
 		/**
@@ -116,8 +179,8 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 		 */
 		size_t which(E a) @safe pure {
 			foreach_reverse(i, b; _array) {
-				if(binaryFun!equal(a,b)) return i;
-				else if(binaryFun!cmp(a,b)) break;
+				if(binaryFun!equal(a, b)) return i;
+				else if(binaryFun!cmp(a, b)) break;
 			}
 			throw new ElementNotFoundException("Element not found!");
 		}
@@ -130,14 +193,14 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 			size_t f, t = _array.length;
 			E a = from;
 			foreach_reverse(size_t i ,E b; _array) {
-				if(binaryFun!cmp(a,b) || binaryFun!equal(a,b)){ 
+				if(binaryFun!cmp(a, b) || binaryFun!equal(a, b)){ 
 					f = i;
 					break;
 				}
 			}
 			a = to;
 			foreach_reverse(size_t i ,E b; _array) {
-				if(binaryFun!cmp(a,b) || binaryFun!equal(a,b)){ 
+				if(binaryFun!cmp(a, b) || binaryFun!equal(a, b)){ 
 					t = i;
 					break;
 				}
@@ -216,24 +279,28 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 	@property E front() @nogc @safe nothrow pure {
 		return _array[begin];
 	}
-	/+/**
+	/**
 	 * Returns the element at the front.
+	 * Note: This is recommended for elements ordered by a key, which is not modified through this function. Failure of
+	 * doing so will ruin the sortedness of the array.
 	 */
 	@property ref E frontRef() @nogc @safe nothrow pure {
 		return _array[begin];
-	}+/
+	}
 	/**
 	 * Returns the element at the back.
 	 */
 	@property E back() @nogc @safe nothrow pure {
 		return _array[end - 1];
 	}
-	/+/**
+	/**
 	 * Returns the element at the back.
+	 * Note: This is recommended for elements ordered by a key, which is not modified through this function. Failure of
+	 * doing so will ruin the sortedness of the array.
 	 */
 	@property ref E backRef() @nogc @safe nothrow pure {
 		return _array[end - 1];
-	}+/
+	}
 	/**
 	 * Returns the element at begin and increments the position by one.
 	 */
@@ -295,9 +362,16 @@ public struct SortedList(E, alias cmp = "a < b", bool allowDuplicates = true, al
 	/**
 	 * Returns a copy of the underlying array.
 	 */
-	@property E[] arrayOf() @safe nothrow pure const {
-		return _array.dup;
+	@property const(E)[] arrayOf() @safe nothrow pure const {
+		const(E)[] result;
+		result.reserve = _array.length;
+		foreach (const E key; _array) {
+			result ~= key;
+		}
+		return result;
 	}
+	
+	
 	string toString() {
 		import std.conv : to;
 		return to!string(_array);
@@ -428,4 +502,25 @@ unittest {
 	assert(diff_ac.hasRange([1, 5, 9]) == 3);
 	assert(diff_bc.hasRange([1, 3, 5, 7, 9]) == 5);
 	assert(5 in diff_bc);
+}
+
+//test key functions
+unittest {
+	import std.exception;
+	import std.conv : to;
+	alias TestSet = SortedList!(TestStructWithKey, "a > b", false, "a == b");
+	TestSet a;
+	a.put(TestStructWithKey(0, null, null));
+	a.put(TestStructWithKey(1, null, null));
+	a.put(TestStructWithKey(4, null, null));
+	assert(a.has(0), a.arrayOf.to!string);
+	assert(a.has(1), a.arrayOf.to!string);
+	assert(!a.has(2), a.arrayOf.to!string);
+	assert(!a.has(3), a.arrayOf.to!string);
+	assert(a.has(4), a.arrayOf.to!string);
+	assert(a.searchBy(4).key == 4, a.arrayOf.to!string);
+	assert(a.searchByPtr(3) == null, a.arrayOf.to!string);
+	assertThrown(a.searchByRef(5));
+	assert(a.removeBy(4).key == 4, a.arrayOf.to!string);
+	assert(!a.has(4), a.arrayOf.to!string);
 }
