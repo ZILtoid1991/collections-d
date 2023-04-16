@@ -3,19 +3,22 @@ Advanced data containers for D.
 
 # Currently available containers
 
-|Name:         |Based on:                       |Accessed By:|Adding: |Ordered by: |Theo. Insertion Complexity:|Theo. Access Complexity:|Foreach: |Key:|Array:|
-|--------------|--------------------------------|------------|--------|------------|---------------------------|------------------------|---------|----|------|
-|SortedList    |Array with sort per ins.        |Index       |`put` only|Element val.|O(n)                     |O(1)                    |Fwd+Bckwd|None|Yes   |
-|SortedSet     |Prev. + check for duplicates    |Index       |`put` only|Element val.|O(n)                     |O(1)                    |Fwd+Bckwd|None|Yes   |
-|TreeMap       |Self-balancing AVL Tree         |Key         |By key  |Key         |O(log n) + N (balancing)   |O(log n)          |Fwd+Bckwd,K+E,E|Yes |No    |
-|TreeSet       |Self-balancing AVL Tree         |Key         |By key  |Key         |O(log n) + N (balancing)   |O(log n)          |Fwd+Bckwd,K+E,E|Yes |No    |
-|HashMap       |TreeMap storing hash values     |Key or Hash |By key  |Hashcode's num. value|O(log n) + N (balancing)|O(log n)   |Fwd,HC+E,E|Not preserved|No |
-|HashSet       |TreeSet storing hash values     |`has` only, K/H|By key  |Hashcode's num. value|O(log n) + N (balancing)|O(log n)          |No|Not preserved|No  |
-|LinkedList    |Two-way linked list             |Index       |By index, can insert at exact position|None|O(n) |O(n)                    |Fwd+Bckwd|None|No    |
-|LinkedSet     |Prev. + check for duplicates    |Index|`put` only|Similar to FIFO, order can be changed  |O(n) |O(n)                    |Fwd+Bckwd|None|No    |
-|LinkedMap     |Two-way linked list with keys   |Key         |By key  |FIFO        |O(n)                       |O(n)                    |Fwd+Bckwd|Yes |No    |
-|LinkedHashMap |Two-way linked list with hash keys|Key or Hash|By key |FIFO        |O(n)                       |O(n) |Fwd+Bckwd, Depending on key preservation|Preserved optionally|No|
+|Name:         |Based on:                       |Accessed By:|Adding: |Ordered by: |Theoretical Insertion Complexity:|Theoretical Access Complexity:|Foreach: |Key:|Array:|
+|--------------|--------------------------------|------------|--------|------------|---------------------------------|------------------------------|---------|----|------|
+|SortedList    |Array with sort per ins.        |Index       |`put` only|Element val.|O(n)                           |O(1)                          |Fwd+Bckwd|None|Yes   |
+|SortedSet     |Prev. + check for duplicates    |Index/with `searchBy` function|`put` only|Element val.|O(n)         |O(1) |Fwd+Bckwd|None/with `searchBy` function|Yes   |
+|TreeMap       |Self-balancing AVL Tree         |Key         |By key  |Key         |O(log n) + N (balancing)         |O(log n)                |Fwd+Bckwd,K+E,E|Yes |No    |
+|TreeSet       |Self-balancing AVL Tree         |Key         |By key  |Key         |O(log n) + N (balancing)         |O(log n)                |Fwd+Bckwd,K+E,E|Yes |No    |
+|HashMap       |TreeMap storing hash values     |Key or Hash |By key  |Hashcode's num. value|O(log n) + N (balancing)|O(log n)               |Fwd,HC+E,E|Not preserved|No |
+|HashSet       |TreeSet storing hash values     |`has` only, K/H|By key  |Hashcode's num. value|O(log n) + N (balancing)|O(log n)                   |No|Not preserved|No  |
+|LinkedList    |Two-way linked list             |Index       |By index, can insert at exact position|None|O(n)       |O(n)                          |Fwd+Bckwd|None|No    |
+|LinkedSet     |Prev. + check for duplicates    |Index|`put` only|Similar to FIFO, order can be changed  |O(n)       |O(n)                          |Fwd+Bckwd|None|No    |
+|LinkedMap     |Two-way linked list with keys   |Key         |By key  |FIFO        |O(n)                             |O(n)                          |Fwd+Bckwd|Yes |No    |
+|LinkedHashMap |Two-way linked list with hash keys|Key or Hash|By key |FIFO        |O(n)           |O(n) |Fwd+Bckwd, Depending on key preservation|Preserved optionally|No|
 |LinkedHashSet |LinkedSet storing hash values   |`has` only, K/H|By key  |FIFO        |O(n)                       |O(n)|Only with key preservation|Preserved optionally|No|
+
+A quick note on insertion/access complexity: it does not account things like cache misses and etc. As such, maps will suffer from 
+them, and one might have to take things like that into account when designing their software.
 
 ## SortedList
 
@@ -29,6 +32,8 @@ Has random access for indexing, elements can be only put into the list with the 
 ### Using as a sorted set
 
 The template of the SortedList can disable duplicates, which will also enable certain functions, like removal by element.
+
+With the `searchBy` template function, the SortedSet can be used similarly to an associative array, but with ordering capabilities.
 
 ## TreeMap and TreeSet
 
