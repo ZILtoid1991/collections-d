@@ -24,3 +24,5 @@ docs/
 *.lst
 
 *.pdb
+
+.history

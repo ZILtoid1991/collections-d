@@ -104,23 +104,23 @@ public struct TreeMap(K, E, bool nogcIndexing = true, alias less = "a < b") {
 					return "
 						int opApply(scope int delegate(ref E) " ~ attr ~ " dg) " ~ attr ~ " {
 							if(left !is null)
-								if(left.opApplyReverse(dg))
+								if(left.opApply(dg))
 									return 1;
 							if(dg(elem))
 								return 1;
 							if(right !is null)
-								if(right.opApplyReverse(dg))
+								if(right.opApply(dg))
 									return 1;
 							return 0;
 						}
 						int opApply(scope int delegate(K, ref E) " ~ attr ~ " dg) " ~ attr ~ " {
 							if(left !is null)
-								if(left.opApplyReverse(dg))
+								if(left.opApply(dg))
 									return 1;
 							if(dg(key, elem))
 								return 1;
 							if(right !is null)
-								if(right.opApplyReverse(dg))
+								if(right.opApply(dg))
 									return 1;
 							return 0;
 						}
