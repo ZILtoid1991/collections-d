@@ -1,3 +1,5 @@
+**Notice: Project moved to the following link:** https://codeberg.org/ZILtoid1991/collections-d
+
 # collections-d
 Advanced data containers for D.
 
